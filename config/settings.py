@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     # Third party
     'rest_framework',
     'corsheaders',
+    'anymail',
     # Local
     'associations',
     'members',
@@ -125,6 +126,25 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 # ── Email ─────────────────────────────────────────────────────────────────────
+#
+# SMTP DOES NOT WORK ON RAILWAY. This was measured from inside the running
+# container, not assumed: outbound TCP to smtp.gmail.com times out on 587, 465,
+# 25 AND 2525, while HTTPS to port 443 returns 200. Railway blocks outbound
+# SMTP wholesale to stop its platform being used for spam. No combination of
+# host, port, TLS setting or app password will change that — Django's SMTP
+# backend simply cannot open a socket.
+#
+# So production sends over an HTTPS email API instead, via django-anymail.
+# Nothing in notifications/email.py changes: it builds ordinary
+# EmailMultiAlternatives objects and anymail swaps in underneath as a normal
+# Django email backend.
+#
+#   local dev   -> console backend (default below), prints to stdout
+#   production  -> EMAIL_BACKEND=anymail.backends.brevo.EmailBackend
+#                  plus BREVO_API_KEY
+#
+# The SMTP settings are kept so a future host that permits SMTP needs only an
+# environment change, not a code change.
 EMAIL_BACKEND = config(
     'EMAIL_BACKEND',
     default='django.core.mail.backends.console.EmailBackend',
@@ -135,6 +155,25 @@ EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='ChessHub <noreply@bcachesshub.co.zw>')
+
+# Brevo was chosen over Resend deliberately. Resend is the nicer product but
+# will only deliver to arbitrary recipients once a DOMAIN is verified, and
+# bcachesshub.co.zw is not owned yet. Brevo verifies a single SENDER EMAIL
+# ADDRESS, so it can mail real members today from a personal Gmail, on 300
+# emails/day free. Revisit if the domain is ever purchased.
+ANYMAIL = {
+    'BREVO_API_KEY': config('BREVO_API_KEY', default=''),
+}
+
+# Refuse to boot in production configured to send mail it cannot send. A
+# silently dead notification system is exactly the failure this project already
+# had for months: every announcement, challenge and password reset was written
+# to stdout and thrown away, and nothing anywhere reported a problem.
+if not DEBUG and EMAIL_BACKEND.endswith('smtp.EmailBackend'):
+    raise ImproperlyConfigured(
+        'SMTP is blocked on Railway (ports 25/465/587/2525 all time out). '
+        'Set EMAIL_BACKEND=anymail.backends.brevo.EmailBackend and BREVO_API_KEY.'
+    )
 
 # ── Site / Paynow ─────────────────────────────────────────────────────────────
 SITE_BASE_URL = config('SITE_BASE_URL', default='http://127.0.0.1:8000')
