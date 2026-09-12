@@ -179,7 +179,17 @@ if not DEBUG and EMAIL_BACKEND.endswith('smtp.EmailBackend'):
 SITE_BASE_URL = config('SITE_BASE_URL', default='http://127.0.0.1:8000')
 PAYNOW_INTEGRATION_ID = config('PAYNOW_INTEGRATION_ID', default='SANDBOX_ID')
 PAYNOW_INTEGRATION_KEY = config('PAYNOW_INTEGRATION_KEY', default='SANDBOX_KEY')
-PAYNOW_SANDBOX = config('PAYNOW_SANDBOX', default=True, cast=bool)
+# Defaults to DEBUG, NOT to True. Sandbox mode lets a payment be marked paid
+# without paying, so the safe default in production is off. It previously
+# defaulted to True and the Railway variable was never set, which left the
+# sandbox approval endpoint live on the public site.
+PAYNOW_SANDBOX = config('PAYNOW_SANDBOX', default=DEBUG, cast=bool)
+
+if not DEBUG and PAYNOW_SANDBOX:
+    raise ImproperlyConfigured(
+        'PAYNOW_SANDBOX is enabled in production. Sandbox mode can mark '
+        'payments completed without payment. Unset it or set it to False.'
+    )
 
 # ── Production security ───────────────────────────────────────────────────────
 if not DEBUG:

@@ -168,3 +168,63 @@ def _sandbox_mobile_result(payment_obj):
         poll_url=fake_poll,
         paynow_reference=f'SANDBOX-{payment_obj.pk}',
     )
+
+# ---------------------------------------------------------------------------
+# Callback verification
+# ---------------------------------------------------------------------------
+
+def _hash_fields(data, keys=None):
+    """
+    Paynow's integrity scheme: concatenate the field VALUES in order, append
+    the integration key, SHA512, uppercase hex.
+
+    Every field except `hash` itself participates. Paynow documents a field
+    order for callbacks; we follow it when all expected keys are present and
+    fall back to the order the POST arrived in otherwise, because a merchant
+    that rejects a legitimate callback is as broken as one that accepts a
+    forged one.
+    """
+    import hashlib
+
+    if keys is None:
+        keys = [k for k in data.keys() if k.lower() != 'hash']
+    concat = ''.join(str(data.get(k, '')) for k in keys)
+    concat += PAYNOW_INTEGRATION_KEY
+    return hashlib.sha512(concat.encode('utf-8')).hexdigest().upper()
+
+
+# The order Paynow documents for status-update callbacks.
+CALLBACK_FIELD_ORDER = [
+    'reference', 'paynowreference', 'amount', 'status', 'pollurl',
+]
+
+
+def verify_callback_hash(data):
+    """
+    Is this POST genuinely from Paynow?
+
+    WHY THIS MATTERS MORE THAN ANYTHING ELSE IN THIS FILE. The callback
+    endpoint is unauthenticated and CSRF-exempt by necessity — Paynow's
+    servers call it, not a browser with a session. Without verifying the hash,
+    ANY person on the internet can POST
+
+        reference=x-<payment_id>&status=paid
+
+    and the site will mark that payment completed and auto-confirm the
+    tournament registration attached to it. Payment ids are sequential
+    integers, so there is nothing to guess.
+
+    Returns True only if the hash is present and matches.
+    """
+    supplied = (data.get('hash') or data.get('Hash') or '').upper()
+    if not supplied:
+        return False
+
+    present = [k for k in CALLBACK_FIELD_ORDER if k in data]
+    if len(present) == len(CALLBACK_FIELD_ORDER):
+        if _hash_fields(data, CALLBACK_FIELD_ORDER) == supplied:
+            return True
+
+    # Fall back to the order Paynow actually sent, for forward compatibility
+    # with fields we do not yet know about.
+    return _hash_fields(data) == supplied

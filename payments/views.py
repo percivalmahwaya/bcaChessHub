@@ -1,5 +1,6 @@
 import logging
 
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
@@ -10,6 +11,7 @@ from django.views.decorators.http import require_POST
 from tournaments.models import Tournament, TournamentRegistration
 from .models import Payment
 from .paynow_client import (
+    verify_callback_hash,
     initiate_ecocash,
     initiate_innbucks,
     initiate_web_checkout,
@@ -102,9 +104,30 @@ def initiate_payment(request, tournament_pk):
 
 @csrf_exempt
 def paynow_callback(request):
-    """POST callback from Paynow servers on status change."""
+    """
+    POST callback from Paynow servers on status change.
+
+    THIS ENDPOINT IS UNAUTHENTICATED AND CSRF-EXEMPT BY NECESSITY — Paynow's
+    servers call it, not a browser with a session. That makes the hash the ONLY
+    thing standing between this view and anyone on the internet, and until
+    2026-09-12 it was not checked at all. A bare
+
+        POST /payments/callback/  reference=x-7&status=paid
+
+    would mark payment 7 completed and auto-confirm the tournament
+    registration attached to it. Payment ids are sequential integers, so there
+    was nothing to guess.
+    """
     if request.method != 'POST':
         return HttpResponse(status=405)
+
+    if not verify_callback_hash(request.POST):
+        logger.warning(
+            'Paynow callback REJECTED: bad or missing hash. ref=%r from %s',
+            request.POST.get('reference', ''),
+            request.META.get('REMOTE_ADDR', '?'),
+        )
+        return HttpResponse('Invalid hash', status=403)
 
     try:
         reference = request.POST.get('reference', '')
@@ -174,24 +197,59 @@ def poll_payment(request, payment_pk):
     return JsonResponse({'status': payment.status})
 
 
-# Sandbox views (dev only)
+# ---------------------------------------------------------------------------
+# Sandbox views — LOCAL DEVELOPMENT ONLY
+# ---------------------------------------------------------------------------
+#
+# These exist so the payment flow can be exercised without Paynow. They are
+# also, by design, a way to mark a payment paid without paying — which is
+# exactly why they must never be reachable in production.
+#
+# They were. `PAYNOW_SANDBOX` defaulted to True and the Railway variable was
+# never set, so on the live site `sandbox_approve` accepted an UNAUTHENTICATED
+# POST for ANY payment id and completed it, confirming the tournament
+# registration attached to it. Probing /payments/sandbox-checkout/1/ in
+# production returned 404 (payment not found) rather than 403 (sandbox
+# disabled), which is how this was discovered.
+#
+# Three independent guards now, because one of them had already failed:
+#   1. settings.PAYNOW_SANDBOX now defaults to DEBUG, so production is off
+#      unless someone deliberately turns it on
+#   2. `_sandbox_only` additionally refuses whenever DEBUG is False, so
+#      setting the variable by mistake is not enough to expose them
+#   3. approval requires a logged-in user who OWNS the payment
+
+def _sandbox_only(request):
+    """Return an HttpResponse to abort with, or None if the request may pass."""
+    if not settings.DEBUG or not PAYNOW_SANDBOX:
+        return HttpResponse('Sandbox disabled.', status=403)
+    return None
+
 
 def sandbox_checkout(request, payment_pk):
-    if not PAYNOW_SANDBOX:
-        return HttpResponse('Sandbox disabled.', status=403)
+    blocked = _sandbox_only(request)
+    if blocked:
+        return blocked
     payment = get_object_or_404(Payment, pk=payment_pk)
     return render(request, 'payments/sandbox_checkout.html', {'payment': payment})
 
 
+@login_required
 @require_POST
 def sandbox_approve(request, payment_pk):
-    if not PAYNOW_SANDBOX:
-        return HttpResponse('Sandbox disabled.', status=403)
-    payment = get_object_or_404(Payment, pk=payment_pk)
+    blocked = _sandbox_only(request)
+    if blocked:
+        return blocked
+    # Ownership, not just authentication: otherwise any signed-up member could
+    # complete somebody else's payment.
+    payment = get_object_or_404(Payment, pk=payment_pk, member=request.user.member)
     payment.mark_completed(gateway_reference=f'SANDBOX-{payment_pk}')
     messages.success(request, f'[SANDBOX] {payment.currency} {payment.amount} payment approved.')
     return redirect('tournament_detail', pk=payment.tournament.pk)
 
 
 def sandbox_poll(request, payment_pk):
+    blocked = _sandbox_only(request)
+    if blocked:
+        return blocked
     return JsonResponse({'status': 'paid'})
