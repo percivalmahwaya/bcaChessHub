@@ -27,6 +27,19 @@ for _var in ('RAILWAY_PUBLIC_DOMAIN', 'RAILWAY_PRIVATE_DOMAIN'):
     if _val and _val not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(_val)
 
+# Railway's health check probes the container with ITS OWN Host header, not the
+# public domain. railway.toml sets healthcheckPath="/" with a 300s timeout, so
+# if Django rejects that host the check can never pass: Railway starts a
+# perfectly healthy container, probes it for five minutes, gets 400 Bad Request
+# every time, then kills it. The deploy is marked FAILED with no traceback and
+# a log that reads like a clean successful boot — which is exactly what happened
+# on 2026-09-13 the moment ALLOWED_HOSTS was tightened away from '*'.
+#
+# Appended in CODE, not left to the environment variable, so that locking down
+# ALLOWED_HOSTS can never take the service down again.
+if os.environ.get('RAILWAY_ENVIRONMENT') and 'healthcheck.railway.app' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('healthcheck.railway.app')
+
 # ── Apps ──────────────────────────────────────────────────────────────────────
 INSTALLED_APPS = [
     'django.contrib.admin',
