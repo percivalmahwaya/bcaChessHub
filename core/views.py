@@ -26,3 +26,14 @@ def home(request):
         'top_players': top_players,
         'stats': stats,
     })
+
+
+def security(request):
+    """
+    Public security and trust page.
+
+    Deliberately static: it describes controls that are implemented, and names
+    the ones that are not. Every claim on it should be traceable to code — if a
+    control is removed, the claim must come off this page in the same commit.
+    """
+    return render(request, 'security.html')

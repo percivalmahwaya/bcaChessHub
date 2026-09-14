@@ -3,12 +3,13 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
-from core.views import home
+from core.views import home, security
 from members.views import dashboard, verify_2fa
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home, name='home'),
+    path('security/', security, name='security'),
     path('tournaments/', include('tournaments.urls')),
     path('associations/', include('associations.urls')),
     path('rankings/', include('members.urls')),

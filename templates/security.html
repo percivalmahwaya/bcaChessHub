@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+{% block title %}Security &amp; Trust — ChessHub{% endblock %}
+
+{% block extra_head %}
+<style>
+  .sec-hero { background: linear-gradient(135deg, var(--chess-dark), var(--chess-mid)); color:#fff; padding:56px 0; }
+  .sec-hero h1 { font-weight:800; }
+  .sec-hero .accent { color: var(--chess-gold); }
+  .sec-card { height:100%; }
+  .sec-card .card-body { padding:1.5rem; }
+  .sec-icon { font-size:1.5rem; color: var(--chess-accent); }
+  .sec-list { list-style:none; padding-left:0; margin:0; }
+  .sec-list li { padding:.45rem 0 .45rem 1.6rem; position:relative; border-bottom:1px solid rgba(0,0,0,.05); }
+  .sec-list li:last-child { border-bottom:0; }
+  .sec-list li::before { content:"\F26E"; font-family:"bootstrap-icons"; position:absolute; left:0; top:.45rem; color:#198754; }
+  .sec-list li small { display:block; color:#6c757d; }
+  .gap-list li::before { content:"\F4C6"; color:#f5a623; }
+  .sec-section-title { font-weight:700; color: var(--chess-dark); margin:2.5rem 0 1rem; }
+  .code-ref { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.85em; color:#6c757d; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="sec-hero">
+  <div class="container">
+    <h1>Security <span class="accent">&amp; Trust</span></h1>
+    <p class="lead mb-0" style="max-width:46rem;">
+      ChessHub asks members to create an account and, for some tournaments, to pay
+      an entry fee. This page sets out exactly what protects that — and, just as
+      importantly, what does not yet.
+    </p>
+  </div>
+</div>
+
+<div class="container py-5">
+
+  <div class="alert alert-light border" role="alert">
+    <strong>Everything listed below is implemented and running.</strong> Nothing here
+    is planned, aspirational, or "coming soon" — anything in that category is in the
+    <a href="#gaps">Not yet done</a> section at the bottom, named plainly.
+  </div>
+
+  <h2 class="sec-section-title">Payments</h2>
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card sec-card">
+        <div class="card-body">
+          <div class="sec-icon mb-2"><i class="bi bi-shield-lock"></i></div>
+          <h5 class="card-title">Payment confirmations are cryptographically verified</h5>
+          <ul class="sec-list">
+            <li>Every status update from Paynow is checked against a SHA-512 signature derived from our integration key
+              <small>A confirmation that is unsigned, altered in transit, or sent by anyone other than Paynow is rejected outright and logged with its source address.</small></li>
+            <li>A rejected confirmation cannot change a payment's status or confirm a tournament place
+              <small>Verification happens before the payment record is even looked up.</small></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card sec-card">
+        <div class="card-body">
+          <div class="sec-icon mb-2"><i class="bi bi-person-lock"></i></div>
+          <h5 class="card-title">A payment can only be acted on by its owner</h5>
+          <ul class="sec-list">
+            <li>Checking a payment's progress requires being signed in as the member who made it</li>
+            <li>Test-mode payment tools are refused entirely outside local development
+              <small>Three independent guards enforce this: a configuration default, a runtime check, and an ownership check. The application refuses to start at all if test payments are switched on in production.</small></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec-section-title">Your account</h2>
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card sec-card">
+        <div class="card-body">
+          <div class="sec-icon mb-2"><i class="bi bi-phone"></i></div>
+          <h5 class="card-title">Optional two-factor authentication</h5>
+          <ul class="sec-list">
+            <li>Time-based one-time codes from any authenticator app</li>
+            <li>Locked for 60 seconds after five wrong codes
+              <small>This is what stops an attacker simply trying every six-digit combination.</small></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card sec-card">
+        <div class="card-body">
+          <div class="sec-icon mb-2"><i class="bi bi-key"></i></div>
+          <h5 class="card-title">Passwords are never stored</h5>
+          <ul class="sec-list">
+            <li>Only a salted PBKDF2 hash is kept — your actual password is not recoverable by anyone, including administrators</li>
+            <li>New passwords are checked against common-password lists, minimum length, and similarity to your own details</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec-section-title">Connection and session</h2>
+  <div class="card">
+    <div class="card-body">
+      <ul class="sec-list">
+        <li><strong>HTTPS on every page</strong><small>Traffic between your browser and ChessHub is encrypted in transit.</small></li>
+        <li><strong>Session and CSRF cookies are marked Secure in production</strong><small>They are never transmitted over an unencrypted connection.</small></li>
+        <li><strong>CSRF protection on every state-changing request</strong><small>Another site cannot cause your browser to submit an action as you.</small></li>
+        <li><strong>The site only answers to its own domain</strong><small>Host headers are restricted, which is what prevents forged password-reset links pointing somewhere else.</small></li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 class="sec-section-title">Configuration that fails safe</h2>
+  <div class="card">
+    <div class="card-body">
+      <p class="text-muted mb-3" style="max-width:52rem;">
+        The most dangerous failures are the quiet ones — a system that looks healthy
+        while doing nothing. ChessHub is built to refuse to start rather than run in a
+        state that only appears to work.
+      </p>
+      <ul class="sec-list">
+        <li>Refuses to start in production with a development signing key</li>
+        <li>Refuses to start with test-mode payments enabled</li>
+        <li>Refuses to start configured to send email by a method that cannot work on our host</li>
+        <li>Member and tournament data is scoped to its association and held in a managed PostgreSQL database with persistent storage</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2 class="sec-section-title">How this is checked</h2>
+  <div class="row g-4">
+    <div class="col-md-6">
+      <div class="card sec-card">
+        <div class="card-body text-center">
+          <div class="display-6 fw-bold" style="color:var(--chess-accent);">69</div>
+          <p class="mb-1 fw-semibold">automated tests</p>
+          <p class="text-muted small mb-0">Run against every change. Twenty-nine of them cover payments specifically, most written as attempted attacks rather than as checks that the normal path works.</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card sec-card">
+        <div class="card-body text-center">
+          <div class="display-6 fw-bold" style="color:var(--chess-accent);">29</div>
+          <p class="mb-1 fw-semibold">live deployment checks</p>
+          <p class="text-muted small mb-0">A separate audit that inspects the running site and its configuration, not just the source code — including probing the payment endpoints from outside to confirm they refuse what they should.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="sec-section-title" id="gaps">Not yet done</h2>
+  <div class="card border-warning">
+    <div class="card-body">
+      <p class="text-muted mb-3" style="max-width:52rem;">
+        A security page that lists only strengths is not worth reading. These are real
+        and current.
+      </p>
+      <ul class="sec-list gap-list">
+        <li><strong>Email notifications are not yet live</strong><small>Announcements, tournament alerts and password resets are written but not yet delivering. Until that is switched on, treat the notification centre inside the site as the reliable channel.</small></li>
+        <li><strong>HSTS is not enabled</strong><small>HTTPS is enforced by our host, but browsers are not yet instructed to refuse an unencrypted connection outright.</small></li>
+        <li><strong>No independent security audit</strong><small>Everything above is our own work and our own testing. It has not been reviewed by an outside party.</small></li>
+        <li><strong>Two-factor authentication is optional, not required</strong><small>Strongly recommended for administrator and organiser accounts.</small></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="mt-4 p-4 rounded" style="background:var(--chess-dark); color:rgba(255,255,255,.85);">
+    <h5 class="text-white mb-2">Found a problem?</h5>
+    <p class="mb-0">
+      If you believe you have found a security issue, please report it to your
+      association administrator rather than posting it publicly. Reports are
+      welcome and will not be held against the person making them.
+    </p>
+  </div>
+
+  <p class="text-muted small mt-4 mb-0">
+    This page describes the system as deployed. If you find a claim here that does not
+    match what the site actually does, that is a bug and we want to hear about it.
+  </p>
+
+</div>
+{% endblock %}
