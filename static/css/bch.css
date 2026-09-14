@@ -1,0 +1,320 @@
+/* ==========================================================================
+   Bulawayo Chess Hub - design system
+   ==========================================================================
+
+   STRUCTURE FROM THE BOARD. COLOUR FROM MATABELELAND.
+
+   Why this file exists and why it is hand written rather than a framework:
+
+   The people using this site are on mid range Android phones, on metered
+   data bundles, on 3G. Measured before this was written, the home page made
+   a phone download 329 KB, of which 5 KB was content and 324 KB was
+   Bootstrap plus an icon font. Roughly six seconds before anything appeared,
+   and a third of a megabyte of somebody's bundle, to read five kilobytes of
+   chess news.
+
+   That constraint is not a limitation to design around. It is the design.
+   A site that opens instantly on a Bulawayo bundle, because somebody cared
+   enough to count the kilobytes, is not a generic site.
+
+   THE VISUAL LANGUAGE
+
+   Chess already owns a structure that needs no images: the board. Alternating
+   squares, eight by eight, ranks and files. It renders from nothing, weighs
+   nothing, and is unmistakable. Africa Chess League proved this works; its
+   two accent colours are literally the standard light and dark squares,
+   #eeeed2 and #769656.
+
+   So we take the structure and reject the colours. Every chess site on earth
+   uses that green and cream. Ours uses terracotta, ochre and bone: red soil
+   and Matobo granite. Same recognisable grid, colours nobody else has.
+
+   TONE FOLLOWS THE REAL THING
+
+   At a tournament in the NUST hall it is silent inside, only clocks being
+   pressed, and noisy outside where people analyse. So competitive surfaces
+   (ratings, pairings, standings) are quiet, dense, high information, near
+   monochrome. Community surfaces (news, coaches, photographs) are warm and
+   open. Most chess sites pick one tone and flatten everything with it.
+
+   HOUSE RULES, from Percival directly. Do not reintroduce these:
+     - no em dashes in interface copy
+     - no emoji used as icons
+     - no purple to blue gradients. In fact no gradients at all
+     - no centred hero with a gradient background and two buttons
+     - no row of three feature cards each with an icon in a circle
+   ========================================================================== */
+
+/* --------------------------------------------------------------- tokens */
+
+:root {
+  /* Matabeleland earth. Sampled to sit near payfari's warm palette, which
+     is the one Percival picked out unprompted, then pulled toward red soil. */
+  --bch-terracotta:   #b85c38;
+  --bch-terracotta-d: #954828;
+  --bch-ochre:        #c08a2e;
+  --bch-bone:         #f2ece1;
+  --bch-sand:         #e2d8c6;
+  --bch-clay:         #cbbba4;
+
+  /* Granite. Structure, text, and the quiet competitive surfaces. */
+  --bch-ink:          #1b1a18;
+  --bch-granite:      #3b3a36;
+  --bch-stone:        #6b6862;
+  --bch-mist:         #a8a49c;
+
+  --bch-paper:        #faf7f1;
+  --bch-white:        #ffffff;
+
+  /* Result semantics. Muted on purpose; a chess result is not an alert. */
+  --bch-win:          #4f7a48;
+  --bch-loss:         #9c4a3c;
+  --bch-draw:         #8a8578;
+
+  /* Board squares for decorative structure. Deliberately low contrast:
+     this is texture, not a playable board. A full strength terracotta
+     chequer at page scale is loud and cheap looking. */
+  --sq-light:         var(--bch-bone);
+  --sq-dark:          var(--bch-sand);
+
+  /* Type. System stack, zero bytes over the wire. A web font costs 15 to 40 KB
+     per weight, which on a metered bundle buys very little. Revisit only if a
+     display face is worth the download, and load it with font-display:swap. */
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Modular scale, 1.25. */
+  --t-xs:  0.75rem;
+  --t-sm:  0.875rem;
+  --t-base: 1rem;
+  --t-lg:  1.125rem;
+  --t-xl:  1.375rem;
+  --t-2xl: 1.75rem;
+  --t-3xl: 2.25rem;
+  --t-4xl: 3rem;
+
+  /* Spacing, 4px base. */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 64px;
+
+  /* Corners stay nearly square. Rounding everything is one of the tells. */
+  --r-sm: 2px;
+  --r:    3px;
+
+  --line: 1px solid var(--bch-clay);
+  --line-dark: 1px solid rgba(255,255,255,.12);
+
+  --wrap: 1120px;
+}
+
+/* ---------------------------------------------------------------- reset */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--t-base);
+  line-height: 1.55;
+  color: var(--bch-ink);
+  background: var(--bch-paper);
+  -webkit-font-smoothing: antialiased;
+}
+
+img { max-width: 100%; height: auto; display: block; }
+
+a { color: var(--bch-terracotta-d); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+h1, h2, h3, h4 {
+  margin: 0 0 var(--s-3);
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+h1 { font-size: var(--t-3xl); }
+h2 { font-size: var(--t-2xl); }
+h3 { font-size: var(--t-xl); }
+h4 { font-size: var(--t-lg); }
+p  { margin: 0 0 var(--s-4); }
+
+/* -------------------------------------------------------------- layout */
+
+.wrap { width: 100%; max-width: var(--wrap); margin-inline: auto; padding-inline: var(--s-4); }
+
+.row { display: flex; flex-wrap: wrap; gap: var(--s-5); }
+.col { flex: 1 1 0; min-width: 0; }
+.col-8 { flex: 1 1 62%; min-width: 0; }
+.col-4 { flex: 1 1 30%; min-width: 0; }
+
+.stack > * + * { margin-top: var(--s-4); }
+.between { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); }
+
+/* ------------------------------------------------------- board motif */
+
+/* The identity, drawn in CSS. No image request, no layout shift. */
+.board-rule {
+  height: 6px;
+  background-image:
+    linear-gradient(90deg, var(--bch-terracotta) 25%, transparent 25%,
+                    transparent 50%, var(--bch-terracotta) 50%, var(--bch-terracotta) 75%,
+                    transparent 75%);
+  background-size: 24px 6px;
+  opacity: .9;
+}
+
+.board-tint {
+  background-color: var(--sq-light);
+  background-image:
+    linear-gradient(45deg, var(--sq-dark) 25%, transparent 25%, transparent 75%, var(--sq-dark) 75%),
+    linear-gradient(45deg, var(--sq-dark) 25%, transparent 25%, transparent 75%, var(--sq-dark) 75%);
+  background-size: 48px 48px;
+  background-position: 0 0, 24px 24px;
+}
+
+/* ---------------------------------------------------------------- nav */
+
+.masthead { background: var(--bch-ink); color: var(--bch-bone); }
+.masthead .wrap { display: flex; align-items: center; gap: var(--s-5); min-height: 58px; }
+
+.brand {
+  font-weight: 800;
+  font-size: var(--t-lg);
+  letter-spacing: -0.02em;
+  color: var(--bch-bone);
+  white-space: nowrap;
+}
+.brand:hover { text-decoration: none; color: var(--bch-white); }
+.brand b { color: var(--bch-ochre); font-weight: 800; }
+.brand-mark {
+  display: inline-block; width: 14px; height: 14px; margin-right: var(--s-2);
+  background:
+    linear-gradient(45deg, var(--bch-terracotta) 50%, var(--bch-bone) 50%);
+  vertical-align: -1px;
+}
+
+.nav { display: flex; align-items: center; gap: var(--s-4); margin-left: auto; flex-wrap: wrap; }
+.nav a { color: rgba(242,236,225,.82); font-size: var(--t-sm); font-weight: 500; }
+.nav a:hover { color: var(--bch-ochre); text-decoration: none; }
+.nav a.on { color: var(--bch-white); box-shadow: inset 0 -2px 0 var(--bch-terracotta); }
+
+.navtoggle {
+  display: none; margin-left: auto; background: none; border: var(--line-dark);
+  color: var(--bch-bone); padding: var(--s-1) var(--s-2); border-radius: var(--r-sm);
+  font-size: var(--t-sm); cursor: pointer;
+}
+
+/* --------------------------------------------------------------- bits */
+
+.btn {
+  display: inline-block; padding: var(--s-2) var(--s-4);
+  border: 1px solid transparent; border-radius: var(--r-sm);
+  font-size: var(--t-sm); font-weight: 600; cursor: pointer;
+  transition: background-color .12s ease, color .12s ease;
+}
+.btn:hover { text-decoration: none; }
+.btn-primary { background: var(--bch-terracotta); color: var(--bch-white); }
+.btn-primary:hover { background: var(--bch-terracotta-d); color: var(--bch-white); }
+.btn-ghost { background: transparent; color: var(--bch-bone); border-color: rgba(242,236,225,.35); }
+.btn-ghost:hover { background: rgba(242,236,225,.1); color: var(--bch-white); }
+.btn-quiet { background: var(--bch-sand); color: var(--bch-ink); }
+.btn-quiet:hover { background: var(--bch-clay); color: var(--bch-ink); }
+.btn-sm { padding: var(--s-1) var(--s-3); font-size: var(--t-xs); }
+
+.panel { background: var(--bch-white); border: var(--line); border-radius: var(--r); }
+.panel-head {
+  padding: var(--s-3) var(--s-4); border-bottom: var(--line);
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3);
+}
+.panel-head h3 { margin: 0; font-size: var(--t-base); letter-spacing: .02em; text-transform: uppercase; }
+.panel-head a { font-size: var(--t-xs); font-weight: 600; }
+.panel-body { padding: var(--s-4); }
+.panel-tight .panel-body { padding: 0; }
+
+.tag {
+  display: inline-block; padding: 2px var(--s-2); border-radius: var(--r-sm);
+  font-size: var(--t-xs); font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  background: var(--bch-sand); color: var(--bch-granite);
+}
+.tag-live   { background: var(--bch-terracotta); color: #fff; }
+.tag-open   { background: var(--bch-win); color: #fff; }
+.tag-soon   { background: var(--bch-clay); color: var(--bch-ink); }
+.tag-done   { background: var(--bch-granite); color: var(--bch-bone); }
+
+.muted { color: var(--bch-stone); }
+.small { font-size: var(--t-sm); }
+.tiny  { font-size: var(--t-xs); }
+.num   { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------- quiet (competitive) */
+
+/* The inside of the hall. Dense, near monochrome, information first. */
+.quiet { background: var(--bch-ink); color: var(--bch-bone); }
+.quiet a { color: var(--bch-bone); }
+.quiet .muted { color: var(--bch-mist); }
+
+table.grid { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+table.grid th {
+  text-align: left; font-size: var(--t-xs); text-transform: uppercase;
+  letter-spacing: .06em; color: var(--bch-stone); font-weight: 700;
+  padding: var(--s-2) var(--s-4); border-bottom: var(--line);
+  white-space: nowrap;
+}
+table.grid td { padding: var(--s-2) var(--s-4); border-bottom: 1px solid var(--bch-sand); }
+table.grid tbody tr:last-child td { border-bottom: 0; }
+table.grid tbody tr:nth-child(even) { background: rgba(226,216,198,.28); }
+table.grid tbody tr:hover { background: rgba(184,92,56,.09); }
+table.grid td.r, table.grid th.r { text-align: right; }
+
+.quiet table.grid th { color: var(--bch-mist); border-bottom-color: rgba(255,255,255,.14); }
+.quiet table.grid td { border-bottom-color: rgba(255,255,255,.07); }
+.quiet table.grid tbody tr:nth-child(even) { background: rgba(255,255,255,.03); }
+.quiet table.grid tbody tr:hover { background: rgba(184,92,56,.18); }
+
+/* --------------------------------------------------------- empty state */
+
+/* Most of this site has no data yet. An honest empty state that says what
+   will appear reads as early. Six sections saying "coming soon" reads as dead. */
+.empty {
+  padding: var(--s-6) var(--s-4); text-align: center;
+  color: var(--bch-stone); font-size: var(--t-sm);
+}
+.empty strong { display: block; color: var(--bch-granite); margin-bottom: var(--s-1); }
+
+/* -------------------------------------------------------------- footer */
+
+.foot { background: var(--bch-ink); color: rgba(242,236,225,.6); margin-top: var(--s-8); }
+.foot .wrap { padding-block: var(--s-6); }
+.foot a { color: rgba(242,236,225,.72); }
+.foot a:hover { color: var(--bch-ochre); text-decoration: none; }
+.foot-cols { display: flex; flex-wrap: wrap; gap: var(--s-6); justify-content: space-between; }
+.foot h4 { color: var(--bch-bone); font-size: var(--t-xs); text-transform: uppercase;
+           letter-spacing: .08em; margin-bottom: var(--s-2); }
+.foot ul { list-style: none; margin: 0; padding: 0; font-size: var(--t-sm); }
+.foot li + li { margin-top: var(--s-1); }
+
+/* ------------------------------------------------------------- motion */
+
+/* Restrained on purpose, and switched off entirely for anyone who asks. */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* -------------------------------------------------------------- phone */
+
+@media (max-width: 860px) {
+  :root { --t-3xl: 1.875rem; --t-4xl: 2.25rem; }
+  .navtoggle { display: block; }
+  .nav {
+    display: none; width: 100%; margin: 0; padding: var(--s-3) 0 var(--s-4);
+    flex-direction: column; align-items: flex-start; gap: var(--s-3);
+  }
+  .masthead.open .nav { display: flex; }
+  .masthead .wrap { flex-wrap: wrap; }
+  .col-8, .col-4 { flex-basis: 100%; }
+  table.grid th, table.grid td { padding: var(--s-2) var(--s-3); }
+  .hide-phone { display: none; }
+}

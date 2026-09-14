@@ -1,92 +1,91 @@
-<!DOCTYPE html>
+{% load static %}<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}ChessHub{% endblock %}</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-  <style>
-    :root {
-      --chess-dark: #1a1a2e;
-      --chess-mid: #16213e;
-      --chess-accent: #e94560;
-      --chess-gold: #f5a623;
-    }
-    body { background: #f8f9fa; }
-    .navbar { background: var(--chess-dark) !important; }
-    .navbar-brand { color: var(--chess-gold) !important; font-weight: 700; font-size: 1.4rem; }
-    .navbar-brand span { color: var(--chess-accent); }
-    .nav-link { color: rgba(255,255,255,0.85) !important; }
-    .nav-link:hover { color: var(--chess-gold) !important; }
-    .btn-chess { background: var(--chess-accent); color: white; border: none; }
-    .btn-chess:hover { background: #c73550; color: white; }
-    .badge-status-upcoming { background: #6c757d; }
-    .badge-status-registration_open { background: #198754; }
-    .badge-status-in_progress { background: #0d6efd; }
-    .badge-status-completed { background: #343a40; }
-    .hero { background: linear-gradient(135deg, var(--chess-dark), var(--chess-mid)); color: white; padding: 60px 0; }
-    .hero h1 { font-weight: 800; }
-    .hero .accent { color: var(--chess-gold); }
-    .card { border: none; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border-radius: 12px; }
-    .card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.14); transform: translateY(-2px); transition: all 0.2s; }
-    footer { background: var(--chess-dark); color: rgba(255,255,255,0.6); padding: 30px 0; margin-top: 60px; }
-  </style>
-  {% block extra_head %}{% endblock %}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1b1a18">
+<title>{% block title %}Bulawayo Chess Hub{% endblock %}</title>
+<meta name="description" content="{% block description %}Chess in Bulawayo and Matabeleland. Ratings, tournaments, online events and coaching.{% endblock %}">
+
+{# The design system. Self hosted, small, always loaded. #}
+<link rel="stylesheet" href="{% static 'css/bch.css' %}">
+
+{% comment %} Bootstrap, for pages not yet rebuilt in the new design language.
+   A migrated page overrides this block with nothing and saves its visitor
+   roughly 320 KB. The Bootstrap Icons font is gone entirely: it cost 95 KB
+   of CSS plus font files to draw about four glyphs.
+   Delete this block once the last template has been converted. {% endcomment %}
+{% block legacy_css %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block extra_head %}{% endblock %}
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg">
-  <div class="container">
-    <a class="navbar-brand" href="/">♟ Chess<span>Hub</span></a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="nav">
-      <ul class="navbar-nav ms-auto align-items-center gap-2">
-        <li class="nav-item"><a class="nav-link" href="/tournaments/">Tournaments</a></li>
-        <li class="nav-item"><a class="nav-link" href="/rankings/">Rankings</a></li>
-        <li class="nav-item"><a class="nav-link" href="/associations/">Associations</a></li>
-        {% if user.is_authenticated %}
-          <li class="nav-item"><a class="nav-link" href="/dashboard/">Dashboard</a></li>
-          <li class="nav-item">
-            <a class="nav-link position-relative" href="{% url 'notification_centre' %}" title="Notifications">
-              <i class="bi bi-bell"></i>
-              {% if unread_notification_count %}
-                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill"
-                      style="background:var(--chess-accent);font-size:0.6rem;">
-                  {{ unread_notification_count }}
-                </span>
-              {% endif %}
-            </a>
-          </li>
-          {% if user.is_staff %}
-            <li class="nav-item"><a class="nav-link" href="/admin/"><i class="bi bi-gear"></i> Admin</a></li>
-          {% endif %}
-          <li class="nav-item"><a class="btn btn-outline-light btn-sm" href="/logout/">Logout</a></li>
-        {% else %}
-          <li class="nav-item"><a class="nav-link" href="{% url 'signup' %}">Sign Up</a></li>
-          <li class="nav-item"><a class="btn btn-chess btn-sm px-3" href="/login/">Login</a></li>
-        {% endif %}
-      </ul>
-    </div>
+<header class="masthead" id="masthead">
+  <div class="wrap">
+    <a class="brand" href="/"><span class="brand-mark"></span>Bulawayo <b>Chess Hub</b></a>
+
+    <button class="navtoggle" type="button" aria-label="Menu"
+            onclick="document.getElementById('masthead').classList.toggle('open')">Menu</button>
+
+    <nav class="nav">
+      <a href="/tournaments/">Tournaments</a>
+      <a href="/rankings/">Ratings</a>
+      <a href="/associations/">Clubs</a>
+      {% if user.is_authenticated %}
+        <a href="/dashboard/">Dashboard</a>
+        <a href="{% url 'notification_centre' %}">Alerts{% if unread_notification_count %} ({{ unread_notification_count }}){% endif %}</a>
+        {% if user.is_staff %}<a href="/admin/">Admin</a>{% endif %}
+        <a class="btn btn-ghost btn-sm" href="/logout/">Log out</a>
+      {% else %}
+        <a href="{% url 'signup' %}">Sign up</a>
+        <a class="btn btn-primary btn-sm" href="/login/">Log in</a>
+      {% endif %}
+    </nav>
   </div>
-</nav>
+</header>
+<div class="board-rule"></div>
 
 {% block content %}{% endblock %}
 
-<footer>
-  <div class="container text-center">
-    <p class="mb-1">♟ ChessHub &mdash; Digital Administration for Chess Associations</p>
-    <small>Bulawayo Chess Association &copy; 2025</small>
-  </div>
-  <div class="container text-center pb-2">
-    <a href="{% url 'security' %}" class="text-decoration-none" style="color:rgba(255,255,255,.6);">
-      <i class="bi bi-shield-check"></i> Security &amp; Trust</a>
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-cols">
+      <div style="max-width:22rem;">
+        <h4>Bulawayo Chess Hub</h4>
+        <p class="small" style="margin-bottom:0;">
+          Chess in Bulawayo and Matabeleland. Ratings, tournaments, online
+          events and coaching, in one place.
+        </p>
+      </div>
+      <div>
+        <h4>Play</h4>
+        <ul>
+          <li><a href="/tournaments/">Tournaments</a></li>
+          <li><a href="/rankings/">Ratings</a></li>
+          <li><a href="/associations/">Clubs</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>About</h4>
+        <ul>
+          <li><a href="{% url 'security' %}">Security and trust</a></li>
+          <li><a href="{% url 'signup' %}">Join</a></li>
+        </ul>
+      </div>
+    </div>
+    <p class="tiny" style="margin:var(--s-5) 0 0;">
+      An independent community site for chess in the southern region.
+      Not an official publication of any association.
+    </p>
   </div>
 </footer>
 
+{% block legacy_js %}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}
 {% block extra_js %}{% endblock %}
 </body>
 </html>

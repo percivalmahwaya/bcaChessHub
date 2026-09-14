@@ -1,107 +1,174 @@
 {% extends 'base.html' %}
 
-{% block title %}ChessHub — Bulawayo Chess Association{% endblock %}
+{% block title %}Bulawayo Chess Hub{% endblock %}
+{% block description %}Ratings, tournaments and online events for chess in Bulawayo and Matabeleland.{% endblock %}
+
+{% comment %} Rebuilt in the design system. Bootstrap and its JavaScript are deliberately
+   not loaded here: this page costs its visitor a few kilobytes instead of 329. {% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="hero">
-  <div class="container text-center">
-    <h1>♟ Welcome to <span class="accent">ChessHub</span></h1>
-    <p class="lead mt-3 mb-4" style="color:rgba(255,255,255,0.8);">
-      The digital home of the Bulawayo Chess Association.<br>
-      Tournaments, rankings, and coaching — all in one place.
-    </p>
-    <div class="d-flex gap-3 justify-content-center flex-wrap">
-      <a href="/tournaments/" class="btn btn-chess btn-lg px-4">View Tournaments</a>
-      <a href="/rankings/" class="btn btn-outline-light btn-lg px-4">Player Rankings</a>
-    </div>
-  </div>
-</div>
 
-<div class="container mt-5">
+{% comment %} ---------------------------------------------------------------- opening
+   Not a centred hero with a gradient and two buttons. A masthead with a
+   claim and the one thing a club player came for, side by side. {% endcomment %}
+<section class="quiet" style="padding:var(--s-7) 0 var(--s-6);">
+  <div class="wrap row" style="align-items:flex-start;">
 
-  <!-- Stats row -->
-  <div class="row g-4 mb-5 text-center">
-    <div class="col-6 col-md-3">
-      <div class="card p-4">
-        <div style="font-size:2rem;font-weight:800;color:var(--chess-accent);">{{ stats.members }}</div>
-        <div class="text-muted small mt-1">Registered Members</div>
-      </div>
+    <div class="col-8">
+      <p class="tiny" style="letter-spacing:.14em;text-transform:uppercase;color:var(--bch-ochre);margin-bottom:var(--s-3);">
+        Bulawayo &middot; Matabeleland North &middot; Matabeleland South
+      </p>
+      <h1 style="font-size:var(--t-4xl);margin-bottom:var(--s-4);max-width:18ch;">
+        Chess in the <span style="color:var(--bch-terracotta);">City of Kings</span>
+      </h1>
+      <p class="small" style="color:var(--bch-mist);max-width:52ch;margin-bottom:var(--s-5);">
+        Ratings, tournaments and the online games people actually play,
+        collected in one place for the southern region. Built to open quickly
+        on a phone, on a bundle.
+      </p>
+      <a class="btn btn-primary" href="/rankings/">See the ratings</a>
+      <a class="btn btn-ghost" href="/tournaments/" style="margin-left:var(--s-2);">Tournaments</a>
     </div>
-    <div class="col-6 col-md-3">
-      <div class="card p-4">
-        <div style="font-size:2rem;font-weight:800;color:var(--chess-accent);">{{ stats.tournaments }}</div>
-        <div class="text-muted small mt-1">Tournaments Run</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card p-4">
-        <div style="font-size:2rem;font-weight:800;color:var(--chess-accent);">{{ stats.matches }}</div>
-        <div class="text-muted small mt-1">Games Played</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <a href="{% url 'association_list' %}" class="text-decoration-none">
-        <div class="card p-4">
-          <div style="font-size:2rem;font-weight:800;color:var(--chess-accent);">{{ stats.associations }}</div>
-          <div class="text-muted small mt-1">Associations</div>
+
+    {# The 8pm habit. The single most repeated reason anyone opens this site. #}
+    <div class="col-4">
+      <div style="border:1px solid rgba(255,255,255,.16);border-radius:var(--r);">
+        <div style="padding:var(--s-3) var(--s-4);border-bottom:1px solid rgba(255,255,255,.12);">
+          <span class="tag tag-live">Tonight</span>
         </div>
-      </a>
-    </div>
-  </div>
-
-  <!-- Upcoming tournaments -->
-  <h4 class="fw-bold mb-3">Upcoming Tournaments</h4>
-  {% if upcoming %}
-    <div class="row g-4 mb-5">
-      {% for t in upcoming %}
-      <div class="col-md-4">
-        <div class="card p-4 h-100">
-          <div class="d-flex justify-content-between align-items-start mb-2">
-            <span class="badge rounded-pill badge-status-{{ t.status }} text-white">{{ t.get_status_display }}</span>
-            <span class="text-muted small">{{ t.format|upper }}</span>
-          </div>
-          <h5 class="fw-bold mb-1">{{ t.name }}</h5>
-          <p class="text-muted small mb-2">
-            <i class="bi bi-geo-alt"></i> {{ t.location }}<br>
-            <i class="bi bi-calendar"></i> {{ t.start_date|date:"d M Y" }}
+        <div style="padding:var(--s-4);">
+          <p class="tiny" style="color:var(--bch-mist);margin-bottom:var(--s-1);letter-spacing:.08em;text-transform:uppercase;">Online, on Lichess</p>
+          <p style="font-size:var(--t-xl);font-weight:700;margin-bottom:var(--s-2);">Evening arena</p>
+          <p class="small" style="color:var(--bch-mist);margin-bottom:var(--s-4);">
+            Starts 20:00. Open to anyone in the region. No entry fee.
           </p>
-          <div class="d-flex justify-content-between align-items-center mt-auto">
-            <small class="text-muted"><i class="bi bi-people"></i> {{ t.player_count }}/{{ t.max_players }}</small>
-            <a href="/tournaments/{{ t.pk }}/" class="btn btn-chess btn-sm">View</a>
-          </div>
+          <a class="btn btn-quiet btn-sm" href="/tournaments/">Get the link</a>
         </div>
       </div>
-      {% endfor %}
     </div>
-  {% else %}
-    <p class="text-muted mb-5">No upcoming tournaments at the moment. Check back soon.</p>
-  {% endif %}
 
-  <!-- Top ranked players -->
-  <h4 class="fw-bold mb-3">Top Ranked Players</h4>
-  <div class="card mb-5">
-    <div class="table-responsive">
-      <table class="table table-hover mb-0">
-        <thead class="table-dark">
-          <tr>
-            <th>#</th><th>Player</th><th>Association</th><th>Rating</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for m in top_players %}
-          <tr>
-            <td class="fw-bold">{{ forloop.counter }}</td>
-            <td>{{ m.user.get_full_name|default:m.user.username }}</td>
-            <td>{{ m.association.name }}</td>
-            <td><strong>{{ m.rating }}</strong></td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="4" class="text-center text-muted py-3">No ranked players yet.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
   </div>
+</section>
 
+<div class="wrap" style="padding-block:var(--s-6);">
+
+  {% comment %} --------------------------------------------------------------- numbers
+     A single quiet line, not four cards with icons in circles. And it tells
+     the truth: when these are zero, it says so. {% endcomment %}
+  <p class="small muted" style="border-bottom:var(--line);padding-bottom:var(--s-3);margin-bottom:var(--s-6);">
+    <span class="num" style="color:var(--bch-ink);font-weight:700;">{{ stats.members }}</span> players registered
+    &nbsp;&middot;&nbsp;
+    <span class="num" style="color:var(--bch-ink);font-weight:700;">{{ stats.tournaments }}</span> tournaments
+    &nbsp;&middot;&nbsp;
+    <span class="num" style="color:var(--bch-ink);font-weight:700;">{{ stats.matches }}</span> games recorded
+    &nbsp;&middot;&nbsp;
+    <a href="{% url 'association_list' %}"><span class="num" style="font-weight:700;">{{ stats.associations }}</span> clubs</a>
+  </p>
+
+  <div class="row">
+
+    {# ------------------------------------------------------------ fixtures #}
+    <div class="col-8">
+      <div class="panel panel-tight">
+        <div class="panel-head">
+          <h3>Upcoming</h3>
+          <a href="/tournaments/">All tournaments</a>
+        </div>
+
+        {% if upcoming %}
+          <table class="grid">
+            <thead>
+              <tr>
+                <th>Tournament</th>
+                <th class="hide-phone">Venue</th>
+                <th>Date</th>
+                <th class="r">Entered</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for t in upcoming %}
+              <tr>
+                <td>
+                  <a href="/tournaments/{{ t.pk }}/" style="font-weight:600;">{{ t.name }}</a>
+                  <span class="tag {% if t.status == 'registration_open' %}tag-open{% else %}tag-soon{% endif %}"
+                        style="margin-left:var(--s-2);">{{ t.get_status_display }}</span>
+                  <div class="tiny muted">{{ t.format|upper }}</div>
+                </td>
+                <td class="hide-phone small">{{ t.location }}</td>
+                <td class="small num">{{ t.start_date|date:"d M Y" }}</td>
+                <td class="r num small">{{ t.player_count }}<span class="muted">/{{ t.max_players }}</span></td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">
+            <strong>No tournament scheduled yet</strong>
+            Hall events run on Saturdays at venues around Bulawayo, in Open,
+            Ladies and Developmental sections. When one is booked it appears here.
+          </div>
+        {% endif %}
+      </div>
+
+      {# ---------------------------------------------------------- the news #}
+      <div class="panel panel-tight" style="margin-top:var(--s-5);">
+        <div class="panel-head"><h3>From the region</h3></div>
+        <div class="empty">
+          <strong>Nothing published yet</strong>
+          Results, reports from the hall, and news from around Matabeleland
+          will be posted here.
+        </div>
+      </div>
+    </div>
+
+    {% comment %} ------------------------------------------------------------- ratings
+       The competitive surface. Quiet, dense, monochrome: the inside of the
+       hall, where it is silent apart from the clocks. {% endcomment %}
+    <div class="col-4">
+      <div class="panel panel-tight quiet" style="border-color:transparent;">
+        <div class="panel-head" style="border-bottom-color:rgba(255,255,255,.12);">
+          <h3 style="color:var(--bch-bone);">Top rated</h3>
+          <a href="/rankings/" style="color:var(--bch-ochre);">Full list</a>
+        </div>
+        {% if top_players %}
+          <table class="grid">
+            <tbody>
+            {% for m in top_players %}
+              <tr>
+                <td class="num muted" style="width:2.5rem;">{{ forloop.counter }}</td>
+                <td>
+                  <div style="font-weight:600;">{{ m.user.get_full_name|default:m.user.username }}</div>
+                  <div class="tiny muted">{{ m.association.name }}</div>
+                </td>
+                <td class="r num" style="font-weight:700;">{{ m.rating }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty" style="color:var(--bch-mist);">
+            <strong style="color:var(--bch-bone);">No ratings yet</strong>
+            Club ratings appear once games are recorded.
+          </div>
+        {% endif %}
+      </div>
+
+      {# ------------------------------------------------------------ coaches #}
+      <div class="panel panel-tight" style="margin-top:var(--s-5);">
+        <div class="panel-head"><h3>Coaching</h3></div>
+        <div class="empty">
+          <strong>Coach profiles are coming</strong>
+          If you coach in Bulawayo and want to be listed, get in touch.
+        </div>
+      </div>
+    </div>
+
+  </div>
 </div>
+
+{# A strip of board, as a closing rule rather than a decorative photograph. #}
+<div class="board-tint" style="height:56px;opacity:.55;"></div>
+
 {% endblock %}

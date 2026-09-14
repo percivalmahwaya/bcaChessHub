@@ -1,10 +1,10 @@
-venv/
-__pycache__/
+*.log
 *.pyc
 *.pyo
+.DS_Store
 .env
+__pycache__/
 db.sqlite3
 media/
 staticfiles/
-*.log
-.DS_Store
+venv/

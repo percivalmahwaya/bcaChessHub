@@ -128,6 +128,10 @@ USE_TZ = True
 # ── Static & Media ────────────────────────────────────────────────────────────
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Project level static source. Without this Django only searches app
+# directories, so static/css/bch.css would silently 404 in development and
+# be missing from collectstatic in production.
+STATICFILES_DIRS = [BASE_DIR / 'static']
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
