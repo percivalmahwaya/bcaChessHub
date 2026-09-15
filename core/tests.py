@@ -185,7 +185,6 @@ class HouseRules(TestCase):
     NOT_YET_MIGRATED = {
         "matches/detail.html",
         "members/admin_stats.html",
-        "members/edit_profile.html",
         "members/manage.html",
         "tournaments/manage.html",
         "tournaments/print.html",

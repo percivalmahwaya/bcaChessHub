@@ -1,134 +1,136 @@
 {% extends 'base.html' %}
-{% block title %}Edit Profile — ChessHub{% endblock %}
+
+{% block title %}Edit your profile{% endblock %}
+
+{% comment %}
+  The photo preview script keeps its 5 MB guard, which matters here more than
+  anywhere: this is the one page where a visitor UPLOADS rather than
+  downloads, and a phone camera photo is routinely 4 to 8 MB. Catching it in
+  the browser saves somebody a long upload on a bundle before the server
+  rejects it.
+
+  Every field showed only its first error, via `.errors.0`. All of them render
+  now, the same fix as change_password.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5" style="max-width:640px;">
+<div class="wrap page" style="max-width:34rem;">
 
-  <div class="d-flex align-items-center justify-content-between mb-4">
-    <h4 class="fw-bold mb-0">Edit Profile</h4>
-    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm">← Dashboard</a>
-  </div>
+  <p class="tiny muted"><a href="{% url 'dashboard' %}">Dashboard</a></p>
+  <h1 class="page-title">Edit your profile</h1>
 
-  <div class="card p-4">
+  {% if form.non_field_errors %}
+    <div class="note note-error">{{ form.non_field_errors }}</div>
+  {% endif %}
 
-    <!-- Current photo preview -->
-    <div class="text-center mb-4">
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+
+    <div style="display:flex;gap:var(--s-4);align-items:center;margin-bottom:var(--s-5);">
       {% if member.profile_photo %}
-        <img src="{{ member.profile_photo.url }}" id="photoPreview"
-             class="rounded-circle" width="100" height="100" style="object-fit:cover;border:3px solid var(--chess-accent);">
+        <img id="photoPreview" class="avatar avatar-lg" src="{{ member.profile_photo.url }}" alt="">
       {% else %}
-        <div id="photoPreview" class="rounded-circle d-inline-flex align-items-center justify-content-center"
-             style="width:100px;height:100px;background:var(--chess-dark);font-size:2.2rem;color:var(--chess-gold);">
-          ♟
+        <div id="photoPreview" class="avatar avatar-lg"
+             style="display:flex;align-items:center;justify-content:center;
+                    background:var(--bch-ink);color:var(--bch-ochre);
+                    font-size:var(--t-2xl);font-weight:700;">
+          {{ member.user.first_name|first|upper }}{{ member.user.last_name|first|upper|default:"" }}
         </div>
       {% endif %}
-      <div class="text-muted small mt-2">Profile photo</div>
+      <div style="flex:1 1 12rem;min-width:0;">
+        <label class="lbl" for="id_profile_photo">Photo</label>
+        <input type="file" name="profile_photo" id="id_profile_photo"
+               accept="image/*" onchange="previewPhoto(this)">
+        <span class="help">JPG, PNG or WebP, up to 5 MB. A square crop looks best.</span>
+      </div>
     </div>
 
-    <form method="post" enctype="multipart/form-data" novalidate>
-      {% csrf_token %}
+    {% if member.profile_photo %}
+      <label class="check" style="margin-bottom:var(--s-5);">
+        <input type="checkbox" name="remove_photo" id="id_remove_photo">
+        <span>Remove my current photo</span>
+      </label>
+    {% endif %}
 
-      <!-- Photo upload -->
-      <div class="mb-3">
-        <label class="form-label small fw-semibold">Upload new photo</label>
-        <input type="file" name="profile_photo" id="id_profile_photo"
-               class="form-control form-control-sm" accept="image/*"
-               onchange="previewPhoto(this)">
-        <div class="form-text">JPG, PNG or WebP · max 5 MB · square crops look best</div>
-      </div>
-
-      {% if member.profile_photo %}
-      <div class="mb-4">
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="remove_photo" id="id_remove_photo">
-          <label class="form-check-label small text-danger" for="id_remove_photo">
-            Remove current photo
-          </label>
-        </div>
-      </div>
-      {% endif %}
-
-      <hr class="my-3">
-
-      <!-- Name -->
-      <div class="row g-3 mb-3">
-        <div class="col-sm-6">
-          <label class="form-label small fw-semibold">First name</label>
-          <input type="text" name="first_name" class="form-control"
-                 value="{{ form.first_name.value|default:'' }}" required>
-          {% if form.first_name.errors %}
-            <div class="text-danger small">{{ form.first_name.errors.0 }}</div>
-          {% endif %}
-        </div>
-        <div class="col-sm-6">
-          <label class="form-label small fw-semibold">Last name</label>
-          <input type="text" name="last_name" class="form-control"
-                 value="{{ form.last_name.value|default:'' }}" required>
-          {% if form.last_name.errors %}
-            <div class="text-danger small">{{ form.last_name.errors.0 }}</div>
-          {% endif %}
-        </div>
-      </div>
-
-      <!-- Email -->
-      <div class="mb-3">
-        <label class="form-label small fw-semibold">Email</label>
-        <input type="email" name="email" class="form-control"
-               value="{{ form.email.value|default:'' }}" required>
-        {% if form.email.errors %}
-          <div class="text-danger small">{{ form.email.errors.0 }}</div>
+    <div class="inline-form" style="margin-bottom:var(--s-4);">
+      <div class="field">
+        <label class="lbl" for="id_first_name">First name</label>
+        <input type="text" name="first_name" id="id_first_name"
+               value="{{ form.first_name.value|default:'' }}"
+               autocomplete="given-name" required>
+        {% if form.first_name.errors %}
+          <ul class="errorlist">{% for e in form.first_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>
         {% endif %}
       </div>
-
-      <!-- Phone -->
-      <div class="mb-3">
-        <label class="form-label small fw-semibold">Phone <span class="text-muted fw-normal">(optional)</span></label>
-        <input type="text" name="phone" class="form-control"
-               value="{{ form.phone.value|default:'' }}"
-               placeholder="+263 77 123 4567">
+      <div class="field">
+        <label class="lbl" for="id_last_name">Last name</label>
+        <input type="text" name="last_name" id="id_last_name"
+               value="{{ form.last_name.value|default:'' }}"
+               autocomplete="family-name" required>
+        {% if form.last_name.errors %}
+          <ul class="errorlist">{% for e in form.last_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+        {% endif %}
       </div>
+    </div>
 
-      <!-- DOB -->
-      <div class="mb-4">
-        <label class="form-label small fw-semibold">Date of birth <span class="text-muted fw-normal">(optional)</span></label>
-        <input type="date" name="date_of_birth" class="form-control"
+    <div class="field">
+      <label class="lbl" for="id_email">Email</label>
+      <input type="email" name="email" id="id_email"
+             value="{{ form.email.value|default:'' }}"
+             autocomplete="email" autocapitalize="none" required>
+      {% if form.email.errors %}
+        <ul class="errorlist">{% for e in form.email.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+
+    <div class="inline-form" style="margin-bottom:var(--s-5);">
+      <div class="field">
+        <label class="lbl" for="id_phone">Phone, optional</label>
+        <input type="tel" name="phone" id="id_phone"
+               value="{{ form.phone.value|default:'' }}"
+               autocomplete="tel" placeholder="+263 77 123 4567">
+      </div>
+      <div class="field">
+        <label class="lbl" for="id_dob">Date of birth, optional</label>
+        <input type="date" name="date_of_birth" id="id_dob"
                value="{{ form.date_of_birth.value|default:'' }}">
       </div>
+    </div>
 
-      {% if form.non_field_errors %}
-      <div class="alert alert-danger py-2 small">{{ form.non_field_errors }}</div>
-      {% endif %}
-
-      <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-chess px-4">Save Changes</button>
-        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
-      </div>
-    </form>
-  </div>
+    <div style="display:flex;gap:var(--s-3);">
+      <button type="submit" class="btn btn-primary">Save</button>
+      <a class="btn btn-quiet" href="{% url 'dashboard' %}">Cancel</a>
+    </div>
+  </form>
 
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+// Shows the chosen photo before upload, and refuses one over 5 MB.
+// The size check is the point: a phone camera photo is routinely 4 to 8 MB,
+// and catching it here saves a long upload on a metered bundle that the
+// server was going to reject anyway.
 function previewPhoto(input) {
-  if (!input.files || !input.files[0]) return;
-  const file = input.files[0];
+  if (!input.files || !input.files[0]) { return; }
+  var file = input.files[0];
   if (file.size > 5 * 1024 * 1024) {
-    alert('File is too large. Please choose an image under 5 MB.');
+    alert('That photo is larger than 5 MB. Please choose a smaller one.');
     input.value = '';
     return;
   }
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const preview = document.getElementById('photoPreview');
-    // Replace whatever element is there with an img
-    const img = document.createElement('img');
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    var previous = document.getElementById('photoPreview');
+    var img = document.createElement('img');
     img.src = e.target.result;
     img.id = 'photoPreview';
-    img.className = 'rounded-circle';
-    img.style.cssText = 'width:100px;height:100px;object-fit:cover;border:3px solid var(--chess-accent);';
-    preview.replaceWith(img);
+    img.alt = '';
+    img.className = 'avatar avatar-lg';
+    previous.replaceWith(img);
   };
   reader.readAsDataURL(file);
 }
