@@ -1,78 +1,77 @@
 {% extends 'base.html' %}
-{% block title %}Set Up Two-Factor Authentication — ChessHub{% endblock %}
+
+{% block title %}Two-factor authentication{% endblock %}
+
+{% comment %}
+  Three states in one template: already on, not started, and mid-setup with a
+  QR code showing.
+
+  The manual entry key was set in a code block on a dark background with no
+  colour declared, inheriting whatever the surrounding text colour happened to
+  be. It is explicitly bone on ink now. A secret key nobody can read is a
+  secret key nobody can use, and it is the fallback for exactly the people
+  whose camera will not scan.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5" style="max-width:560px;">
+<div class="wrap page" style="max-width:32rem;">
 
-  <div class="text-muted small mb-3">
-    <a href="{% url 'dashboard' %}" class="text-muted">&larr; Dashboard</a>
-  </div>
+  <p class="tiny muted"><a href="{% url 'dashboard' %}">Dashboard</a></p>
+  <h1 class="page-title">Two-factor authentication</h1>
+  <p class="page-sub">
+    A one-time code from your phone, on top of your password. Works with
+    Google Authenticator, Authy, or any other TOTP app.
+  </p>
 
-  <div class="card p-4">
+  {% if member.totp_enabled %}
 
-    <h4 class="fw-bold mb-1">Two-Factor Authentication</h4>
-    <p class="text-muted small mb-4">
-      Protect your account with a one-time code from your phone.
-      Works with <strong>Google Authenticator</strong>, <strong>Authy</strong>, and any TOTP app.
-    </p>
+    <div class="note note-success">
+      <strong>It is on.</strong> Your account asks for a code at sign in.
+      You can <a href="{% url 'disable_2fa' %}">turn it off</a>, though you
+      are safer leaving it alone.
+    </div>
 
+  {% elif not secret %}
 
-    {% if member.totp_enabled %}
-    <!-- Already enabled -->
-    <div class="alert alert-success d-flex align-items-center gap-2 mb-4">
-      <span style="font-size:1.3rem;">✅</span>
-      <div>
-        <strong>2FA is active</strong> — your account is protected.
-        <br><small>To disable it, go to <a href="{% url 'disable_2fa' %}">disable 2FA</a>.</small>
+    <div class="panel" style="margin-bottom:var(--s-5);">
+      <div class="panel-body">
+        <ol class="small" style="margin:0;padding-left:1.2rem;line-height:1.9;">
+          <li><strong>Generate a key</strong> for your account, below.</li>
+          <li><strong>Scan the code</strong> that appears, in your authenticator app.</li>
+          <li><strong>Type the six digits</strong> the app gives you, to prove it worked.</li>
+        </ol>
       </div>
     </div>
 
-    {% elif not secret %}
-    <!-- Step 1: generate secret -->
-    <div class="mb-4">
-      <div class="d-flex align-items-start gap-3 mb-3">
-        <span class="badge rounded-pill bg-secondary px-3 py-2">1</span>
-        <div>
-          <div class="fw-semibold">Generate your secret key</div>
-          <div class="text-muted small">Click below to create a unique key for your account.</div>
-        </div>
-      </div>
-      <div class="d-flex align-items-start gap-3 mb-3">
-        <span class="badge rounded-pill bg-secondary px-3 py-2">2</span>
-        <div>
-          <div class="fw-semibold">Scan the QR code</div>
-          <div class="text-muted small">Open your authenticator app and scan the code that appears.</div>
-        </div>
-      </div>
-      <div class="d-flex align-items-start gap-3">
-        <span class="badge rounded-pill bg-secondary px-3 py-2">3</span>
-        <div>
-          <div class="fw-semibold">Enter the 6-digit code</div>
-          <div class="text-muted small">Confirm the code from the app to activate 2FA.</div>
-        </div>
-      </div>
-    </div>
     <form method="post">
       {% csrf_token %}
       <input type="hidden" name="action" value="generate">
-      <button type="submit" class="btn btn-chess">Generate QR Code</button>
+      <button type="submit" class="btn btn-primary">Generate my key</button>
     </form>
 
-    {% else %}
-    <!-- Step 2 & 3: show QR + confirm -->
-    <div class="mb-3">
-      <div class="fw-semibold mb-1">Scan this QR code</div>
-      <p class="text-muted small">Open <strong>Google Authenticator</strong> or <strong>Authy</strong> and tap the + button to scan.</p>
-      <div class="text-center mb-3">
-        <img src="data:image/png;base64,{{ qr_b64 }}"
-             alt="QR Code" style="width:200px;height:200px;border:4px solid #fff;border-radius:8px;">
-      </div>
+  {% else %}
 
-      <div class="mb-3">
-        <div class="fw-semibold small mb-1">Can't scan? Enter this key manually:</div>
-        <code class="d-block p-2 rounded text-center" style="background:var(--chess-dark);letter-spacing:.12rem;font-size:0.95rem;">
-          {{ secret }}
-        </code>
+    <div class="panel" style="margin-bottom:var(--s-5);">
+      <div class="panel-body">
+        <h3 style="font-size:var(--t-base);margin:0 0 var(--s-2);">Scan this</h3>
+        <p class="small muted">
+          Open your authenticator app and use its add or plus button to scan.
+        </p>
+        <div style="text-align:center;margin:var(--s-4) 0;">
+          <img src="data:image/png;base64,{{ qr_b64 }}"
+               alt="QR code containing your two-factor key"
+               style="width:200px;height:200px;background:#fff;padding:8px;border-radius:var(--r);">
+        </div>
+
+        <p class="small" style="font-weight:600;margin-bottom:var(--s-2);">
+          Cannot scan? Type this key into the app instead:
+        </p>
+        <code style="display:block;padding:var(--s-3);border-radius:var(--r);
+                     background:var(--bch-ink);color:var(--bch-bone);
+                     text-align:center;letter-spacing:.12rem;
+                     font-family:var(--font-mono);word-break:break-all;">{{ secret }}</code>
       </div>
     </div>
 
@@ -80,23 +79,23 @@
       {% csrf_token %}
       <input type="hidden" name="action" value="confirm">
 
-      <div class="mb-3">
-        <label class="form-label small fw-semibold">
-          Enter the 6-digit code from your app <span class="text-danger">*</span>
-        </label>
-        <input type="text" name="code" class="form-control form-control-lg text-center fw-bold"
-               maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code"
-               placeholder="000000" autofocus
-               style="letter-spacing:.35rem;font-size:1.5rem;">
+      <div class="field">
+        <label class="lbl" for="id_code">The six digits from your app</label>
+        <input type="text" name="code" id="id_code" class="num"
+               maxlength="6" inputmode="numeric" pattern="[0-9]*"
+               autocomplete="one-time-code" placeholder="000000" autofocus
+               style="text-align:center;letter-spacing:.4rem;font-size:1.5rem;
+                      font-weight:700;min-height:3.25rem;">
+        <span class="help">The code changes every thirty seconds.</span>
       </div>
 
-      <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-chess">Activate 2FA</button>
-        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
+      <div style="display:flex;gap:var(--s-3);">
+        <button type="submit" class="btn btn-primary">Turn it on</button>
+        <a class="btn btn-quiet" href="{% url 'dashboard' %}">Cancel</a>
       </div>
     </form>
-    {% endif %}
 
-  </div>
+  {% endif %}
+
 </div>
 {% endblock %}

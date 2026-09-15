@@ -1,40 +1,46 @@
 {% extends 'base.html' %}
-{% block title %}Disable Two-Factor Authentication — ChessHub{% endblock %}
+
+{% block title %}Turn off two-factor authentication{% endblock %}
+
+{% comment %}
+  A destructive action, so it says plainly what is lost and the confirming
+  button is the only red thing on the page. Flag red is reserved for exactly
+  this across the whole design system.
+
+  The warning emoji at the top is gone. On a handset without coverage it was a
+  2.4rem empty box heading a page about weakening your account security.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5" style="max-width:440px;">
+<div class="wrap page" style="max-width:26rem;">
 
-  <div class="text-muted small mb-3">
-    <a href="{% url 'dashboard' %}" class="text-muted">&larr; Dashboard</a>
+  <p class="tiny muted"><a href="{% url 'dashboard' %}">Dashboard</a></p>
+  <h1 class="page-title">Turn off two-factor authentication</h1>
+
+  <div class="note note-warning">
+    <strong>This makes your account easier to break into.</strong>
+    With it off, your password is the only thing between your account and
+    anyone who guesses or reuses it. If you are a director or an
+    administrator, that is also everyone else's tournament data.
   </div>
 
-  <div class="card p-4">
+  <form method="post" novalidate style="margin-top:var(--s-5);">
+    {% csrf_token %}
 
-    <div class="text-center mb-4">
-      <div style="font-size:2.4rem;">⚠️</div>
-      <h4 class="fw-bold mt-2 mb-1">Disable 2FA</h4>
-      <p class="text-muted small mb-0">
-        Removing two-factor authentication makes your account less secure.
-        Confirm your password to proceed.
-      </p>
+    <div class="field">
+      <label class="lbl" for="id_password">Confirm with your password</label>
+      <input type="password" name="password" id="id_password"
+             autocomplete="current-password" required autofocus>
     </div>
 
+    <div style="display:flex;gap:var(--s-3);">
+      <button type="submit" class="btn"
+              style="background:var(--bch-loss);color:#fff;">Turn it off</button>
+      <a class="btn btn-quiet" href="{% url 'dashboard' %}">Keep it on</a>
+    </div>
+  </form>
 
-    <form method="post" novalidate>
-      {% csrf_token %}
-
-      <div class="mb-4">
-        <label class="form-label small fw-semibold">Current Password <span class="text-danger">*</span></label>
-        <input type="password" name="password" class="form-control" required autofocus
-               placeholder="Enter your password to confirm">
-      </div>
-
-      <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-danger">Disable 2FA</button>
-        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Cancel</a>
-      </div>
-    </form>
-
-  </div>
 </div>
 {% endblock %}

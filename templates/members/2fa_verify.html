@@ -1,38 +1,49 @@
 {% extends 'base.html' %}
-{% block title %}Two-Factor Verification — ChessHub{% endblock %}
+
+{% block title %}Verification code{% endblock %}
+
+{% comment %}
+  The code field is deliberately large, wide-tracked and numeric. This is
+  typed under time pressure, from a phone held in the other hand, against a
+  code that rotates every thirty seconds.
+
+  inputmode="numeric" raises the number pad rather than the keyboard, and
+  autocomplete="one-time-code" lets a phone offer the code straight from the
+  notification. Both were already here and are kept.
+
+  The padlock emoji is gone. A 2.8rem U+1F510 was the first thing on the page,
+  and on a handset without coverage it was a 2.8rem empty box at the top of a
+  security prompt, which is not a reassuring way to ask for a code.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-5 mb-5" style="max-width:420px;">
-  <div class="card p-4">
+<div class="wrap page" style="max-width:24rem;">
 
-    <div class="text-center mb-4">
-      <div style="font-size:2.8rem;">🔐</div>
-      <h4 class="fw-bold mt-2 mb-1">Verification required</h4>
-      <p class="text-muted small mb-0">
-        Enter the 6-digit code from your authenticator app.
-      </p>
+  <h1 class="page-title">Verification required</h1>
+  <p class="page-sub">Enter the six-digit code from your authenticator app.</p>
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+
+    <div class="field">
+      <label class="lbl" for="id_code">Authentication code</label>
+      <input type="text" name="code" id="id_code" class="num"
+             maxlength="6" inputmode="numeric" pattern="[0-9]*"
+             autocomplete="one-time-code" placeholder="000000" autofocus
+             style="text-align:center;letter-spacing:.4rem;font-size:1.5rem;
+                    font-weight:700;min-height:3.25rem;">
+      <span class="help">The code changes every thirty seconds.</span>
     </div>
 
+    <button type="submit" class="btn btn-primary" style="width:100%;">Verify</button>
+  </form>
 
-    <form method="post" novalidate>
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ next }}">
+  <p class="small muted" style="margin-top:var(--s-5);">
+    <a href="{% url 'logout' %}">Sign in as somebody else</a>
+  </p>
 
-      <div class="mb-3">
-        <label class="form-label small fw-semibold">Authentication Code</label>
-        <input type="text" name="code" class="form-control form-control-lg text-center fw-bold"
-               maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code"
-               placeholder="000000" autofocus
-               style="letter-spacing:.35rem;font-size:1.5rem;">
-      </div>
-
-      <button type="submit" class="btn btn-chess w-100">Verify</button>
-    </form>
-
-    <div class="text-center mt-3">
-      <a href="{% url 'logout' %}" class="text-muted small">Sign in as a different user</a>
-    </div>
-
-  </div>
 </div>
 {% endblock %}
