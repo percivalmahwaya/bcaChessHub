@@ -1,87 +1,104 @@
 {% extends 'base.html' %}
 
-{% block title %}Tournaments — ChessHub{% endblock %}
+{% block title %}Tournaments{% endblock %}
+{% block description %}Chess tournaments in Bulawayo and Matabeleland: entry, pairings, standings and results.{% endblock %}
+
+{% comment %}
+  A table, not a grid of cards.
+
+  The old version drew one card per tournament, each with a status pill, four
+  icon-prefixed lines and a progress bar. On a phone that is most of a screen
+  per tournament, and the design brief is explicit that a row of cards is what
+  makes a site look like every other site.
+
+  A table shows eight tournaments where the cards showed one and a half, and
+  the dates and entry counts line up down the page so they can be compared
+  rather than read one at a time. Columns that will not survive a narrow
+  screen are dropped rather than wrapped, and reappear under the name.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="wrap page">
 
-  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-    <h3 class="fw-bold mb-0">Tournaments</h3>
+  <div class="between" style="margin-bottom:var(--s-4);">
+    <div>
+      <h1 class="page-title">Tournaments</h1>
+      <p class="page-sub" style="margin:0;">
+        Hall events and online arenas across the southern region.
+      </p>
+    </div>
     {% if user.is_authenticated and user.is_staff or user.is_authenticated and user.member.role == 'admin' %}
-      <a href="{% url 'tournament_create' %}" class="btn btn-chess btn-sm">
-        <i class="bi bi-plus-lg"></i> Create Tournament
-      </a>
+      <a href="{% url 'tournament_create' %}" class="btn btn-primary btn-sm">Create tournament</a>
     {% endif %}
   </div>
 
-  <!-- Filter tabs -->
-  <ul class="nav nav-pills mb-4 gap-2">
-    <li class="nav-item">
-      <a class="nav-link {% if not status_filter %}active{% endif %}" href="/tournaments/">All</a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link {% if status_filter == 'registration_open' %}active{% endif %}" href="?status=registration_open">Open</a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link {% if status_filter == 'in_progress' %}active{% endif %}" href="?status=in_progress">In Progress</a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link {% if status_filter == 'completed' %}active{% endif %}" href="?status=completed">Completed</a>
-    </li>
-  </ul>
+  {# --------------------------------------------------------------- filter #}
+  {# Plain links, not pills. Four words, with a rule under the active one. #}
+  <nav class="tabs small">
+    <a href="{% url 'tournament_list' %}" {% if not status_filter %}class="on"{% endif %}>All</a>
+    <a href="?status=registration_open" {% if status_filter == 'registration_open' %}class="on"{% endif %}>Entry open</a>
+    <a href="?status=in_progress" {% if status_filter == 'in_progress' %}class="on"{% endif %}>Being played</a>
+    <a href="?status=completed" {% if status_filter == 'completed' %}class="on"{% endif %}>Finished</a>
+  </nav>
 
-  {% if tournaments %}
-    <div class="row g-4">
-      {% for t in tournaments.object_list %}
-      <div class="col-md-6 col-lg-4">
-        <div class="card p-4 h-100">
-          <div class="d-flex justify-content-between align-items-start mb-3">
-            <span class="badge rounded-pill text-white badge-status-{{ t.status }}">
-              {{ t.get_status_display }}
-            </span>
-            <span class="text-muted small fw-semibold">{{ t.get_format_display }}</span>
-          </div>
-
-          <h5 class="fw-bold mb-1">{{ t.name }}</h5>
-          <p class="text-muted small mb-0"><i class="bi bi-building"></i> {{ t.association.name }}</p>
-          <p class="text-muted small mt-1">
-            <i class="bi bi-geo-alt"></i> {{ t.location }}<br>
-            <i class="bi bi-calendar-range"></i>
-            {{ t.start_date|date:"d M" }} – {{ t.end_date|date:"d M Y" }}
-          </p>
-
-          <div class="mt-2 mb-3">
-            <div class="d-flex justify-content-between small text-muted mb-1">
-              <span>Players registered</span>
-              <span>{{ t.player_count }}/{{ t.max_players }}</span>
-            </div>
-            <div class="progress" style="height:6px;">
-              <div class="progress-bar" style="width:{% widthratio t.player_count t.max_players 100 %}%;background:var(--chess-accent);"></div>
-            </div>
-          </div>
-
-          <div class="d-flex justify-content-between align-items-center mt-auto">
-            <div>
+  <div class="panel panel-tight">
+    {% if tournaments %}
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>Tournament</th>
+            <th class="hide-phone">Venue</th>
+            <th class="hide-phone">Dates</th>
+            <th class="r">Entered</th>
+            <th class="r hide-phone">Entry</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in tournaments.object_list %}
+          <tr>
+            <td>
+              <a href="{% url 'tournament_detail' t.pk %}" style="font-weight:600;">{{ t.name }}</a>
+              <span class="tag {% if t.status == 'registration_open' %}tag-open{% elif t.status == 'in_progress' %}tag-live{% elif t.status == 'completed' %}tag-done{% else %}tag-soon{% endif %}"
+                    style="margin-left:var(--s-2);">{{ t.get_status_display }}</span>
+              <div class="tiny muted">
+                {{ t.format|upper }} &middot; {{ t.association.name }}
+                <span class="show-phone">{{ t.location }}, {{ t.start_date|date:"d M Y" }}</span>
+              </div>
+            </td>
+            <td class="hide-phone small">{{ t.location }}</td>
+            <td class="hide-phone small num nowrap">
+              {{ t.start_date|date:"d M" }} to {{ t.end_date|date:"d M Y" }}
+            </td>
+            <td class="r num">
+              {{ t.player_count }}<span class="muted">/{{ t.max_players }}</span>
+            </td>
+            <td class="r hide-phone small nowrap">
               {% if t.registration_fee > 0 %}
-                <span class="badge bg-light text-dark border">
-                  {{ t.currency }} {{ t.registration_fee }}
-                </span>
+                <span class="num">{{ t.currency }} {{ t.registration_fee }}</span>
               {% else %}
-                <span class="badge bg-light text-success border">Free Entry</span>
+                <span class="muted">Free</span>
               {% endif %}
-            </div>
-            <a href="/tournaments/{{ t.pk }}/" class="btn btn-chess btn-sm px-3">Details</a>
-          </div>
-        </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty">
+        <strong>
+          {% if status_filter %}Nothing in that state{% else %}No tournament scheduled yet{% endif %}
+        </strong>
+        {% if status_filter %}
+          Try All, or check back when the next event is announced.
+        {% else %}
+          Hall events run on Saturdays at venues around Bulawayo, in Open,
+          Ladies and Developmental sections. When one is booked it appears here.
+        {% endif %}
       </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <div class="text-center py-5 text-muted">
-      <i class="bi bi-trophy" style="font-size:3rem;"></i>
-      <p class="mt-3">No tournaments found.</p>
-    </div>
-  {% endif %}
+    {% endif %}
+  </div>
 
   {% include 'partials/pagination.html' %}
 

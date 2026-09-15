@@ -299,6 +299,13 @@ table.grid td.r, table.grid th.r { text-align: right; }
 /* ------------------------------------------------------------- motion */
 
 /* Restrained on purpose, and switched off entirely for anyone who asks. */
+/* Shown only on phones. Pairs with .hide-phone: a column dropped from a
+   narrow table reappears as a line under the row's main value.
+   MUST be declared before the media queries below. Placed after them, at
+   equal specificity it wins on source order and the element stays hidden on
+   exactly the devices the class exists for. */
+.show-phone { display: none; }
+
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
@@ -317,6 +324,10 @@ table.grid td.r, table.grid th.r { text-align: right; }
   .col-8, .col-4 { flex-basis: 100%; }
   table.grid th, table.grid td { padding: var(--s-2) var(--s-3); }
   .hide-phone { display: none; }
+  /* Its inverse. A table that drops a column on a phone still has to say
+     that information somewhere, so the column moves under the player's name
+     rather than disappearing. */
+  .show-phone { display: block; }
 }
 
 /* ==========================================================================
@@ -424,6 +435,24 @@ select {
   color: var(--bch-white); font-weight: 700;
 }
 .pager .off { color: var(--bch-mist); background: var(--bch-bone); }
+
+/* ------------------------------------------------------------------ tabs */
+
+/* A filter row: tournaments by status, notifications by type, challenges by
+   inbox or sent. Plain links with a rule under the active one, not pills.
+   Pills are four coloured lozenges competing with the content they filter,
+   and on a phone they wrap into a block that outweighs the table below. */
+.tabs {
+  display: flex; flex-wrap: wrap; gap: var(--s-4);
+  margin-bottom: var(--s-5);
+  border-bottom: var(--line); padding-bottom: var(--s-2);
+}
+.tabs a { color: var(--bch-stone); font-weight: 600; padding-bottom: var(--s-2); }
+.tabs a:hover { color: var(--bch-ink); text-decoration: none; }
+.tabs a.on {
+  color: var(--bch-ink);
+  box-shadow: inset 0 -2px 0 var(--bch-terracotta);
+}
 
 /* ------------------------------------------------------------- utilities */
 

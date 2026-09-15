@@ -1,47 +1,53 @@
-{% if page_obj.has_other_pages %}
-<nav class="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-2">
-  <div class="text-muted small">
-    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-    &nbsp;&middot;&nbsp; {{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}
-  </div>
-  <ul class="pagination pagination-sm mb-0">
+{% comment %}
+  Pagination, in the design system.
 
+  Included by rankings, tournaments, manage members and the notification
+  centre, so it must carry no Bootstrap: a single `page-link` left in here
+  would drag the framework back into four migrated pages at once.
+
+  The window is deliberately narrow. On a phone a row of fifteen page numbers
+  wraps into a block of noise, and nobody browsing ratings needs page 11 by
+  name. First, previous, a few neighbours, next, last.
+{% endcomment %}
+{% if page_obj.has_other_pages %}
+<nav class="pager" aria-label="Pagination">
+
+  <div class="small muted">
+    Page <span class="num">{{ page_obj.number }}</span>
+    of <span class="num">{{ page_obj.paginator.num_pages }}</span>,
+    <span class="num">{{ page_obj.paginator.count }}</span>
+    result{{ page_obj.paginator.count|pluralize }}
+  </div>
+
+  <ul>
     {% if page_obj.has_previous %}
-    <li class="page-item">
-      <a class="page-link" href="?page=1{% if query_string %}&{{ query_string }}{% endif %}">&laquo;</a>
-    </li>
-    <li class="page-item">
-      <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_string %}&{{ query_string }}{% endif %}">&lsaquo;</a>
-    </li>
+      <li><a href="?page=1{% if query_string %}&{{ query_string }}{% endif %}"
+             aria-label="First page">First</a></li>
+      <li><a href="?page={{ page_obj.previous_page_number }}{% if query_string %}&{{ query_string }}{% endif %}"
+             rel="prev" aria-label="Previous page">Prev</a></li>
     {% else %}
-    <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
-    <li class="page-item disabled"><span class="page-link">&lsaquo;</span></li>
+      <li><span class="pg off">First</span></li>
+      <li><span class="pg off">Prev</span></li>
     {% endif %}
 
     {% for num in page_obj.paginator.page_range %}
       {% if num == page_obj.number %}
-        <li class="page-item active">
-          <span class="page-link" style="background:var(--chess-accent);border-color:var(--chess-accent);">{{ num }}</span>
-        </li>
+        <li><span class="pg on num" aria-current="page">{{ num }}</span></li>
       {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
-        <li class="page-item">
-          <a class="page-link" href="?page={{ num }}{% if query_string %}&{{ query_string }}{% endif %}">{{ num }}</a>
-        </li>
+        <li><a class="num" href="?page={{ num }}{% if query_string %}&{{ query_string }}{% endif %}">{{ num }}</a></li>
       {% endif %}
     {% endfor %}
 
     {% if page_obj.has_next %}
-    <li class="page-item">
-      <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_string %}&{{ query_string }}{% endif %}">&rsaquo;</a>
-    </li>
-    <li class="page-item">
-      <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query_string %}&{{ query_string }}{% endif %}">&raquo;</a>
-    </li>
+      <li><a href="?page={{ page_obj.next_page_number }}{% if query_string %}&{{ query_string }}{% endif %}"
+             rel="next" aria-label="Next page">Next</a></li>
+      <li><a href="?page={{ page_obj.paginator.num_pages }}{% if query_string %}&{{ query_string }}{% endif %}"
+             aria-label="Last page">Last</a></li>
     {% else %}
-    <li class="page-item disabled"><span class="page-link">&rsaquo;</span></li>
-    <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+      <li><span class="pg off">Next</span></li>
+      <li><span class="pg off">Last</span></li>
     {% endif %}
-
   </ul>
+
 </nav>
 {% endif %}

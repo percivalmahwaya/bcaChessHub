@@ -152,3 +152,109 @@ class ShellRenders(TestCase):
         body = self.client.get(reverse("home")).content.decode()
         self.assertIn("Log out", body)
         self.assertNotIn(">Sign up<", body)
+
+
+class HouseRules(TestCase):
+    """The five rules Percival gave for this interface, enforced.
+
+    These are taste, not correctness, which is exactly why they need a test.
+    Nothing breaks when an emoji creeps back into a heading, so nothing stops
+    it, and six months later the site looks like every other site. The rules
+    live at the top of static/css/bch.css:
+
+        no em dashes in interface copy
+        no emoji used as icons
+        no gradients at all
+        no centred hero with a gradient background and two buttons
+        no row of three feature cards each with an icon in a circle
+
+    NOT_YET_MIGRATED shrinks as templates move onto the design system. It is a
+    worklist that fails if it lies in either direction: a template on it that
+    is already clean must come off, so the list cannot rot into a permanent
+    excuse.
+    """
+
+    # Pictographs: emoji blocks, dingbats, arrows, and the chess piece glyphs.
+    # Chess glyphs are arguable on a chess site, but they fall back to empty
+    # boxes on the mid-range Android handsets this site is actually opened on,
+    # which is worse than a word.
+    PICTOGRAPH = re.compile(
+        "[\U0001F300-\U0001FAFF\U00002600-\U000027BF\U0001F000-\U0001F0FF"
+        "\U0000FE0F\U00002B00-\U00002BFF\U00002190-\U000021FF♔-♟]")
+
+    NOT_YET_MIGRATED = {
+        "associations/contact.html",
+        "associations/detail.html",
+        "matches/challenges/detail.html",
+        "matches/challenges/list.html",
+        "matches/detail.html",
+        "members/2fa_disable.html",
+        "members/2fa_setup.html",
+        "members/2fa_verify.html",
+        "members/admin_stats.html",
+        "members/change_password.html",
+        "members/dashboard.html",
+        "members/edit_profile.html",
+        "members/manage.html",
+        "members/profile.html",
+        "payments/pay.html",
+        "payments/return.html",
+        "payments/sandbox_checkout.html",
+        "tournaments/crosstable.html",
+        "tournaments/detail.html",
+        "tournaments/manage.html",
+        "tournaments/print.html",
+        "tournaments/round.html",
+        "tournaments/standings.html",
+    }
+
+    # Email is a different medium. Mail clients strip stylesheets, so those
+    # templates carry inline styles by necessity and are excluded from the
+    # design system entirely. They are still held to the emoji rule elsewhere.
+    EXCLUDED = {"email/"}
+
+    def _templates(self):
+        root = settings.BASE_DIR / "templates"
+        for path in sorted(root.rglob("*.html")):
+            name = path.relative_to(root).as_posix()
+            if any(name.startswith(prefix) for prefix in self.EXCLUDED):
+                continue
+            yield name, path.read_text(encoding="utf-8")
+
+    def test_migrated_templates_use_no_pictographs(self):
+        offenders = {}
+        for name, text in self._templates():
+            if name in self.NOT_YET_MIGRATED:
+                continue
+            found = sorted({f"U+{ord(c):04X}" for c in self.PICTOGRAPH.findall(text)})
+            if found:
+                offenders[name] = found
+        self.assertEqual(offenders, {},
+                         "emoji or glyph icons in migrated templates. Use a "
+                         f"word: {offenders}")
+
+    def test_the_worklist_does_not_lie(self):
+        """A template on the list that is already clean must come off it."""
+        stale = []
+        for name, text in self._templates():
+            if name in self.NOT_YET_MIGRATED and not self.PICTOGRAPH.search(text):
+                stale.append(name)
+        self.assertEqual(stale, [],
+                         "these are clean and should be removed from "
+                         f"NOT_YET_MIGRATED: {stale}")
+
+    def test_no_em_dashes_in_migrated_templates(self):
+        offenders = []
+        for name, text in self._templates():
+            if name in self.NOT_YET_MIGRATED:
+                continue
+            if "—" in text:
+                offenders.append(name)
+        self.assertEqual(offenders, [],
+                         f"em dashes in interface copy: {offenders}. Use a "
+                         "comma, a colon, or two sentences.")
+
+    def test_the_stylesheet_still_carries_the_rules(self):
+        css = (settings.BASE_DIR / "static" / "css" / "bch.css").read_text(encoding="utf-8")
+        self.assertIn("HOUSE RULES", css,
+                      "the rules must survive in the file, not in memory")

@@ -1,81 +1,73 @@
 {% extends 'base.html' %}
-{% block title %}Chess Associations — ChessHub{% endblock %}
+
+{% block title %}Clubs{% endblock %}
+{% block description %}Chess clubs and associations across Bulawayo and Matabeleland.{% endblock %}
+
+{% comment %}
+  Clubs are few and each one has a real identity, so unlike tournaments this
+  is a list of substantial things rather than rows to compare. It stays a
+  list, but a flat one: name, place, and the three numbers that say whether
+  the club is alive. No card, no logo tile with a chess glyph standing in for
+  a logo that does not exist, no button repeating the link the name already is.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-5 mb-5">
+<div class="wrap page">
 
-  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-    <div>
-      <h3 class="fw-bold mb-0">Chess Associations</h3>
-      <div class="text-muted small">{{ rows|length }} association{{ rows|length|pluralize }} on ChessHub</div>
-    </div>
-  </div>
+  <h1 class="page-title">Clubs</h1>
+  <p class="page-sub">
+    {{ rows|length }} club{{ rows|length|pluralize }} in the southern region.
+  </p>
 
   {% if rows %}
-  <div class="row g-4">
-    {% for row in rows %}
-    <div class="col-md-6 col-lg-4">
-      <div class="card p-4 h-100 d-flex flex-column">
-
-        <!-- Logo + name -->
-        <div class="d-flex align-items-center gap-3 mb-3">
-          {% if row.assoc.logo %}
-            <img src="{{ row.assoc.logo.url }}" alt="{{ row.assoc.name }} logo"
-                 style="width:56px;height:56px;object-fit:contain;border-radius:8px;">
-          {% else %}
-            <div style="width:56px;height:56px;border-radius:8px;
-                        background:var(--chess-dark);display:flex;align-items:center;
-                        justify-content:center;font-size:1.6rem;flex-shrink:0;">
-              ♟
-            </div>
-          {% endif %}
-          <div>
-            <h5 class="fw-bold mb-0">{{ row.assoc.name }}</h5>
-            <div class="text-muted small">
-              <i class="bi bi-geo-alt"></i> {{ row.assoc.city }}, {{ row.assoc.country }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Stats -->
-        <div class="row g-2 text-center mb-3">
-          <div class="col-4">
-            <div class="fw-bold" style="color:var(--chess-accent);">{{ row.member_count }}</div>
-            <div class="text-muted" style="font-size:0.72rem;">Members</div>
-          </div>
-          <div class="col-4">
-            <div class="fw-bold" style="color:var(--chess-accent);">{{ row.tournament_count }}</div>
-            <div class="text-muted" style="font-size:0.72rem;">Tournaments</div>
-          </div>
-          <div class="col-4">
-            {% if row.active_tournaments > 0 %}
-              <div class="fw-bold text-success">{{ row.active_tournaments }}</div>
-              <div class="text-muted" style="font-size:0.72rem;">Active</div>
-            {% else %}
-              <div class="fw-bold text-muted">—</div>
-              <div class="text-muted" style="font-size:0.72rem;">Active</div>
-            {% endif %}
-          </div>
-        </div>
-
-        {% if row.assoc.founded_year %}
-        <div class="text-muted small mb-3">
-          <i class="bi bi-calendar2"></i> Founded {{ row.assoc.founded_year }}
-        </div>
-        {% endif %}
-
-        <a href="{% url 'association_detail' row.assoc.pk %}"
-           class="btn btn-chess btn-sm mt-auto">View Association</a>
-      </div>
+    <div class="panel panel-tight">
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>Club</th>
+            <th class="hide-phone">Where</th>
+            <th class="r">Players</th>
+            <th class="r hide-phone">Tournaments</th>
+            <th class="r">Running</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>
+              <a href="{% url 'association_detail' row.assoc.pk %}" style="font-weight:600;">
+                {{ row.assoc.name }}
+              </a>
+              <div class="tiny muted">
+                <span class="show-phone">{{ row.assoc.city }}, {{ row.assoc.country }}</span>
+                {% if row.assoc.founded_year %}
+                  Founded <span class="num">{{ row.assoc.founded_year }}</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="hide-phone small">{{ row.assoc.city }}, {{ row.assoc.country }}</td>
+            <td class="r num">{{ row.member_count }}</td>
+            <td class="r num hide-phone">{{ row.tournament_count }}</td>
+            <td class="r num">
+              {% if row.active_tournaments %}
+                <span style="color:var(--bch-win);font-weight:700;">{{ row.active_tournaments }}</span>
+              {% else %}
+                <span class="muted">0</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-    {% endfor %}
-  </div>
-
   {% else %}
-  <div class="text-center py-5 text-muted">
-    <div style="font-size:3rem;">♟</div>
-    <p class="mt-2">No associations registered yet.</p>
-  </div>
+    <div class="panel"><div class="empty">
+      <strong>No clubs listed yet</strong>
+      A club appears here once it is registered on the site, along with its
+      players, its tournaments and its ratings.
+    </div></div>
   {% endif %}
 
 </div>

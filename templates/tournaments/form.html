@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ title }} — ChessHub{% endblock %}
+{% block title %}{{ title }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4" style="max-width:680px;">
@@ -33,7 +33,7 @@
       <div class="mb-3">
         <label class="form-label fw-semibold">Association <span class="text-danger">*</span></label>
         <select name="association" class="form-select" required>
-          <option value="">— Select association —</option>
+          <option value="">Select association</option>
           {% for a in associations %}
           <option value="{{ a.pk }}"
             {% if tournament and tournament.association_id == a.pk %}selected{% endif %}>
@@ -96,7 +96,7 @@
         <label class="form-label fw-semibold">Description</label>
         <textarea name="description" rows="3"
                   class="form-control {% if form.description.errors %}is-invalid{% endif %}"
-                  placeholder="Optional — prizes, rules, special notes…">{{ form.description.value|default:'' }}</textarea>
+                  placeholder="Optional: prizes, rules, special notes">{{ form.description.value|default:'' }}</textarea>
         {% for e in form.description.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
       </div>
     </div>

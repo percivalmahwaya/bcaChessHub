@@ -1,112 +1,95 @@
 {% extends 'base.html' %}
-{% block title %}Notifications — ChessHub{% endblock %}
+
+{% block title %}Alerts{% endblock %}
+
+{% comment %}
+  The worst offender against the house rules on the whole site: nine emoji
+  used as icons, one per notification type, plus a bell for the empty state.
+
+  On the mid-range Android handsets this site is opened on, several of those
+  land in a font with no coverage and draw an empty box, so the column that
+  was supposed to tell you what KIND of notification you were looking at told
+  you nothing at all. The type is a word now. It was always a word in the
+  model; it was only ever a picture in this template.
+
+  Unread is marked by a rule down the left edge and a word, not by colour
+  alone, so it survives a greyscale screen and a colour-blind reader.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5" style="max-width:760px;">
+<div class="wrap page" style="max-width:52rem;">
 
-  <!-- Header -->
-  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <div class="between" style="margin-bottom:var(--s-4);">
     <div>
-      <h4 class="fw-bold mb-0">Notifications</h4>
-      <p class="text-muted small mb-0">{{ page_obj.paginator.count }} total</p>
+      <h1 class="page-title">Alerts</h1>
+      <p class="page-sub" style="margin:0;">
+        <span class="num">{{ page_obj.paginator.count }}</span> in total
+      </p>
     </div>
-    <div class="d-flex gap-2">
-      <form method="post" action="{% url 'mark_all_read' %}">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-outline-secondary btn-sm">✓ Mark all read</button>
-      </form>
-      <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm">← Dashboard</a>
-    </div>
+    <form method="post" action="{% url 'mark_all_read' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-quiet btn-sm">Mark all read</button>
+    </form>
   </div>
 
+  {# --------------------------------------------------------------- filter #}
+  <nav class="tabs small">
+    <a href="?{% if type_filter %}type={{ type_filter }}&{% endif %}"
+       {% if not read_filter %}class="on"{% endif %}>All</a>
+    <a href="?{% if type_filter %}type={{ type_filter }}&{% endif %}read=unread"
+       {% if read_filter == 'unread' %}class="on"{% endif %}>Unread</a>
+    <a href="?{% if type_filter %}type={{ type_filter }}&{% endif %}read=read"
+       {% if read_filter == 'read' %}class="on"{% endif %}>Read</a>
+  </nav>
 
-  <!-- Filter bar -->
-  <div class="card p-3 mb-4">
-    <div class="d-flex gap-2 flex-wrap align-items-center">
-      <span class="text-muted small fw-semibold me-1">Filter:</span>
-
-      <!-- Read status pills -->
-      <a href="?{% if type_filter %}type={{ type_filter }}&{% endif %}"
-         class="badge rounded-pill text-decoration-none {% if not read_filter %}text-bg-dark{% else %}bg-light text-dark border{% endif %}">
-        All
-      </a>
-      <a href="?{% if type_filter %}type={{ type_filter }}&{% endif %}read=unread"
-         class="badge rounded-pill text-decoration-none {% if read_filter == 'unread' %}text-bg-danger{% else %}bg-light text-dark border{% endif %}">
-        Unread
-      </a>
-      <a href="?{% if type_filter %}type={{ type_filter }}&{% endif %}read=read"
-         class="badge rounded-pill text-decoration-none {% if read_filter == 'read' %}text-bg-secondary{% else %}bg-light text-dark border{% endif %}">
-        Read
-      </a>
-
-      <span class="text-muted small mx-2">|</span>
-
-      <!-- Type filter -->
-      <a href="?{% if read_filter %}read={{ read_filter }}{% endif %}"
-         class="badge rounded-pill text-decoration-none {% if not type_filter %}text-bg-dark{% else %}bg-light text-dark border{% endif %}">
-        All types
-      </a>
-      {% for val, label in type_choices %}
+  <nav class="tabs small" style="margin-top:calc(0px - var(--s-3));">
+    <a href="?{% if read_filter %}read={{ read_filter }}{% endif %}"
+       {% if not type_filter %}class="on"{% endif %}>Every kind</a>
+    {% for val, label in type_choices %}
       <a href="?{% if read_filter %}read={{ read_filter }}&{% endif %}type={{ val }}"
-         class="badge rounded-pill text-decoration-none {% if type_filter == val %}text-bg-dark{% else %}bg-light text-dark border{% endif %}"
-         style="{% if type_filter == val %}background:var(--chess-accent) !important;{% endif %}">
-        {{ label }}
-      </a>
-      {% endfor %}
-    </div>
-  </div>
-
-  <!-- Notification list -->
-  {% if page_obj.object_list %}
-  <div class="d-flex flex-column gap-2">
-    {% for n in page_obj %}
-    <div class="card px-4 py-3 {% if not n.is_read %}border-start border-3{% endif %}"
-         style="{% if not n.is_read %}border-left-color:var(--chess-accent) !important;{% endif %}">
-      <div class="d-flex align-items-start gap-3">
-
-        <!-- Type icon -->
-        <div style="font-size:1.4rem;line-height:1;flex-shrink:0;margin-top:2px;">
-          {% if n.type == 'tournament_created' %}🏆
-          {% elif n.type == 'registration_confirmed' %}✅
-          {% elif n.type == 'match_scheduled' %}♟
-          {% elif n.type == 'result_posted' %}📋
-          {% elif n.type == 'ranking_updated' %}📈
-          {% elif n.type == 'payment_received' %}💳
-          {% elif n.type == 'deadline_reminder' %}⏰
-          {% else %}📢
-          {% endif %}
-        </div>
-
-        <!-- Content -->
-        <div class="flex-grow-1">
-          <div class="fw-semibold" style="font-size:0.9rem;">{{ n.message }}</div>
-          <div class="d-flex gap-3 mt-1">
-            <span class="text-muted" style="font-size:0.75rem;">{{ n.sent_at|date:"d M Y, H:i" }}</span>
-            <span class="badge bg-light text-dark border" style="font-size:0.68rem;">{{ n.get_type_display }}</span>
-          </div>
-        </div>
-
-        <!-- Read indicator -->
-        {% if not n.is_read %}
-          <span class="badge rounded-pill text-white ms-2 flex-shrink-0"
-                style="background:var(--chess-accent);font-size:0.65rem;padding:3px 7px;">New</span>
-        {% endif %}
-
-      </div>
-    </div>
+         {% if type_filter == val %}class="on"{% endif %}>{{ label }}</a>
     {% endfor %}
-  </div>
+  </nav>
 
-  {% include 'partials/pagination.html' %}
+  {# ----------------------------------------------------------------- list #}
+  {% if page_obj.object_list %}
+    <div class="panel panel-tight">
+      <table class="grid">
+        <tbody>
+          {% for n in page_obj %}
+          <tr{% if not n.is_read %} style="box-shadow:inset 3px 0 0 var(--bch-terracotta);"{% endif %}>
+            <td>
+              <div style="{% if not n.is_read %}font-weight:600;{% endif %}">{{ n.message }}</div>
+              <div class="tiny muted" style="margin-top:2px;">
+                <span class="num">{{ n.sent_at|date:"d M Y, H:i" }}</span>
+                &middot; {{ n.get_type_display }}
+                {% if not n.is_read %}
+                  &middot; <span style="color:var(--bch-terracotta);font-weight:700;">unread</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include 'partials/pagination.html' %}
 
   {% else %}
-  <div class="text-center py-5 text-muted">
-    <div style="font-size:3rem;">🔔</div>
-    <p class="mt-3 mb-0">No notifications found.</p>
-    {% if type_filter or read_filter %}
-      <a href="{% url 'notification_centre' %}" class="btn btn-outline-secondary btn-sm mt-3">Clear filters</a>
-    {% endif %}
-  </div>
+    <div class="panel"><div class="empty">
+      <strong>Nothing here</strong>
+      {% if type_filter or read_filter %}
+        No alert matches those filters.
+        <div style="margin-top:var(--s-4);">
+          <a class="btn btn-quiet btn-sm" href="{% url 'notification_centre' %}">Clear filters</a>
+        </div>
+      {% else %}
+        Pairings, results, rating changes and payment confirmations arrive here.
+      {% endif %}
+    </div></div>
   {% endif %}
 
 </div>

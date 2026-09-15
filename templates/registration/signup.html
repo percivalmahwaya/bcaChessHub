@@ -1,128 +1,137 @@
 {% extends 'base.html' %}
-{% block title %}Join ChessHub{% endblock %}
+
+{% block title %}Join{% endblock %}
+{% block description %}Create a player account on Bulawayo Chess Hub.{% endblock %}
+
+{% comment %}
+  The longest form on the site, and the one a new player meets first.
+
+  Field errors are rendered under their own field rather than only at the top,
+  because a form this long scrolls: an error summary above the fold is
+  invisible by the time you reach the field it is about.
+
+  Optional fields say "optional" in words. The old version marked required
+  ones with a red asterisk, which means nothing to a reader who has not been
+  told the convention, and is invisible to anyone who cannot see the colour.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5">
-  <div class="row justify-content-center">
-    <div class="col-md-6 col-lg-5">
-      <div class="card p-4 p-md-5">
+<div class="wrap page" style="max-width:34rem;">
 
-        <div class="text-center mb-4">
-          <span style="font-size:2.5rem;">♟</span>
-          <h4 class="fw-bold mt-2">Join ChessHub</h4>
-          <p class="text-muted small">Create your player account</p>
-        </div>
+  <h1 class="page-title">Join</h1>
+  <p class="page-sub">
+    A player account gets you a rating, tournament entry and challenges.
+  </p>
 
-        {% if form.non_field_errors %}
-        <div class="alert alert-danger py-2 small">{{ form.non_field_errors }}</div>
+  {% if form.non_field_errors %}
+    <div class="note note-error" style="margin-bottom:var(--s-4);">
+      {{ form.non_field_errors }}
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <div class="inline-form" style="margin-bottom:var(--s-4);">
+      <div class="field">
+        <label class="lbl" for="id_first_name">First name</label>
+        <input type="text" name="first_name" id="id_first_name"
+               value="{{ form.first_name.value|default:'' }}"
+               autocomplete="given-name" autofocus required>
+        {% if form.first_name.errors %}
+          <ul class="errorlist">{% for e in form.first_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>
         {% endif %}
-
-        <form method="post" novalidate>
-          {% csrf_token %}
-
-          <!-- Name row -->
-          <div class="row g-2 mb-3">
-            <div class="col-6">
-              <label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label>
-              <input type="text" name="first_name"
-                     value="{{ form.first_name.value|default:'' }}"
-                     class="form-control {% if form.first_name.errors %}is-invalid{% endif %}"
-                     autofocus required>
-              {% for e in form.first_name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-            </div>
-            <div class="col-6">
-              <label class="form-label fw-semibold">Last Name <span class="text-danger">*</span></label>
-              <input type="text" name="last_name"
-                     value="{{ form.last_name.value|default:'' }}"
-                     class="form-control {% if form.last_name.errors %}is-invalid{% endif %}"
-                     required>
-              {% for e in form.last_name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-            </div>
-          </div>
-
-          <!-- Username -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
-            <input type="text" name="username"
-                   value="{{ form.username.value|default:'' }}"
-                   class="form-control {% if form.username.errors %}is-invalid{% endif %}"
-                   required>
-            {% for e in form.username.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-            <div class="form-text">Used to log in. Letters, digits, and @/./+/-/_ only.</div>
-          </div>
-
-          <!-- Email -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
-            <input type="email" name="email"
-                   value="{{ form.email.value|default:'' }}"
-                   class="form-control {% if form.email.errors %}is-invalid{% endif %}"
-                   required>
-            {% for e in form.email.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-          </div>
-
-          <!-- Association -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Chess Association <span class="text-danger">*</span></label>
-            <select name="association"
-                    class="form-select {% if form.association.errors %}is-invalid{% endif %}"
-                    required>
-              <option value="">— Select your association —</option>
-              {% for assoc in form.fields.association.queryset %}
-              <option value="{{ assoc.pk }}"
-                {% if form.association.value|stringformat:"s" == assoc.pk|stringformat:"s" %}selected{% endif %}>
-                {{ assoc.name }} ({{ assoc.city }})
-              </option>
-              {% endfor %}
-            </select>
-            {% for e in form.association.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-          </div>
-
-          <!-- Phone -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Phone <span class="text-muted fw-normal">(optional)</span></label>
-            <input type="tel" name="phone"
-                   value="{{ form.phone.value|default:'' }}"
-                   class="form-control"
-                   placeholder="+263 77 123 4567">
-          </div>
-
-          <!-- Date of birth -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Date of Birth <span class="text-muted fw-normal">(optional)</span></label>
-            <input type="date" name="date_of_birth"
-                   value="{{ form.date_of_birth.value|default:'' }}"
-                   class="form-control">
-          </div>
-
-          <!-- Password -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
-            <input type="password" name="password1"
-                   class="form-control {% if form.password1.errors %}is-invalid{% endif %}"
-                   required>
-            {% for e in form.password1.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-          </div>
-          <div class="mb-4">
-            <label class="form-label fw-semibold">Confirm Password <span class="text-danger">*</span></label>
-            <input type="password" name="password2"
-                   class="form-control {% if form.password2.errors %}is-invalid{% endif %}"
-                   required>
-            {% for e in form.password2.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-          </div>
-
-          <button type="submit" class="btn btn-chess w-100 py-2 fw-semibold">
-            Create Account
-          </button>
-        </form>
-
-        <p class="text-center text-muted small mt-3 mb-0">
-          Already have an account?
-          <a href="{% url 'login' %}" class="text-decoration-none">Sign in</a>
-        </p>
-
+      </div>
+      <div class="field">
+        <label class="lbl" for="id_last_name">Last name</label>
+        <input type="text" name="last_name" id="id_last_name"
+               value="{{ form.last_name.value|default:'' }}"
+               autocomplete="family-name" required>
+        {% if form.last_name.errors %}
+          <ul class="errorlist">{% for e in form.last_name.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+        {% endif %}
       </div>
     </div>
-  </div>
+
+    <div class="field">
+      <label class="lbl" for="id_username">Username</label>
+      <input type="text" name="username" id="id_username"
+             value="{{ form.username.value|default:'' }}"
+             autocomplete="username" autocapitalize="none" required>
+      {% if form.username.errors %}
+        <ul class="errorlist">{% for e in form.username.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+      <span class="help">What you log in with. Letters, digits and @ . + - _ only.</span>
+    </div>
+
+    <div class="field">
+      <label class="lbl" for="id_email">Email</label>
+      <input type="email" name="email" id="id_email"
+             value="{{ form.email.value|default:'' }}"
+             autocomplete="email" autocapitalize="none" required>
+      {% if form.email.errors %}
+        <ul class="errorlist">{% for e in form.email.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+      <span class="help">Used for pairings, results and password resets.</span>
+    </div>
+
+    <div class="field">
+      <label class="lbl" for="id_association">Club</label>
+      <select name="association" id="id_association" required>
+        <option value="">Choose your club</option>
+        {% for assoc in form.fields.association.queryset %}
+          <option value="{{ assoc.pk }}"
+            {% if form.association.value|stringformat:"s" == assoc.pk|stringformat:"s" %}selected{% endif %}>
+            {{ assoc.name }} ({{ assoc.city }})
+          </option>
+        {% endfor %}
+      </select>
+      {% if form.association.errors %}
+        <ul class="errorlist">{% for e in form.association.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+
+    <div class="inline-form" style="margin-bottom:var(--s-4);">
+      <div class="field">
+        <label class="lbl" for="id_phone">Phone, optional</label>
+        <input type="tel" name="phone" id="id_phone"
+               value="{{ form.phone.value|default:'' }}"
+               autocomplete="tel" placeholder="+263 77 123 4567">
+      </div>
+      <div class="field">
+        <label class="lbl" for="id_dob">Date of birth, optional</label>
+        <input type="date" name="date_of_birth" id="id_dob"
+               value="{{ form.date_of_birth.value|default:'' }}">
+        <span class="help">Only used for age sections.</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="lbl" for="id_password1">Password</label>
+      <input type="password" name="password1" id="id_password1"
+             autocomplete="new-password" required>
+      {% if form.password1.errors %}
+        <ul class="errorlist">{% for e in form.password1.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+
+    <div class="field">
+      <label class="lbl" for="id_password2">Password again</label>
+      <input type="password" name="password2" id="id_password2"
+             autocomplete="new-password" required>
+      {% if form.password2.errors %}
+        <ul class="errorlist">{% for e in form.password2.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+    </div>
+
+    <button type="submit" class="btn btn-primary" style="width:100%;">Create account</button>
+  </form>
+
+  <p class="small muted" style="margin-top:var(--s-5);">
+    Already have an account? <a href="{% url 'login' %}">Log in</a>.
+  </p>
+
 </div>
 {% endblock %}

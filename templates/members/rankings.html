@@ -1,101 +1,131 @@
 {% extends 'base.html' %}
 
-{% block title %}Player Rankings — ChessHub{% endblock %}
+{% block title %}Ratings{% endblock %}
+{% block description %}ELO ratings for chess players in Bulawayo and Matabeleland, updated after every recorded game.{% endblock %}
+
+{% comment %}
+  THE most opened page on this site. When Percival described who this is for,
+  his first answer was "a club player checking their rating against their
+  peers". So it carries no decoration and nothing that delays the table.
+
+  Treated as a competitive surface, which the design brief defines as quiet,
+  dense and near monochrome: the inside of the hall, silent apart from the
+  clocks. Warm colour is spent on one thing only, the top three, so the eye
+  has somewhere to land without the page turning into a leaderboard graphic.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-5 mb-5">
+<div class="wrap page">
 
-  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-    <h3 class="fw-bold mb-0">Player Rankings</h3>
-    <span class="text-muted small">ELO Rating System · Updated after every match</span>
+  <div class="between" style="margin-bottom:var(--s-5);">
+    <div>
+      <h1 class="page-title">Ratings</h1>
+      <p class="page-sub" style="margin:0;">
+        ELO, updated after every recorded game. New players start at 1200.
+      </p>
+    </div>
+    {% if page_obj %}
+      <span class="small muted"><span class="num">{{ page_obj.paginator.count }}</span>
+        player{{ page_obj.paginator.count|pluralize }}</span>
+    {% endif %}
   </div>
 
-  <!-- Search + association filters -->
-  <div class="card p-3 mb-4">
-    <form method="get" class="row g-2 align-items-end">
-      <div class="col-sm-5">
-        <input type="text" name="q" value="{{ search }}"
-               class="form-control form-control-sm"
-               placeholder="Search by name or username…">
-      </div>
-      <div class="col-sm-5">
-        <select name="association" class="form-select form-select-sm"
-                onchange="this.form.submit()">
-          <option value="">All Associations</option>
-          {% for assoc in associations %}
-            <option value="{{ assoc.pk }}"
-              {% if assoc_filter == assoc.pk|stringformat:'s' %}selected{% endif %}>
-              {{ assoc.name }}
-            </option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-sm-2 d-flex gap-1">
-        <button type="submit" class="btn btn-chess btn-sm">Search</button>
-        <a href="/rankings/" class="btn btn-outline-secondary btn-sm">Reset</a>
-      </div>
-    </form>
-  </div>
+  {# ------------------------------------------------------------- filters #}
+  <form method="get" class="inline-form" style="margin-bottom:var(--s-5);">
+    <div class="field">
+      <label class="lbl" for="q">Search</label>
+      <input type="search" id="q" name="q" value="{{ search }}"
+             placeholder="Name or username">
+    </div>
+    <div class="field">
+      <label class="lbl" for="association">Club</label>
+      {# Auto-submits: one tap instead of choose, then hunt for the button. #}
+      <select name="association" id="association" onchange="this.form.submit()">
+        <option value="">All clubs</option>
+        {% for assoc in associations %}
+          <option value="{{ assoc.pk }}"
+            {% if assoc_filter == assoc.pk|stringformat:'s' %}selected{% endif %}>
+            {{ assoc.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field narrow">
+      <button type="submit" class="btn btn-primary btn-sm">Search</button>
+      {% if search or assoc_filter %}
+        <a href="{% url 'rankings' %}" class="btn btn-quiet btn-sm">Clear</a>
+      {% endif %}
+    </div>
+  </form>
 
-  <div class="card">
-    <div class="table-responsive">
-      <table class="table table-hover mb-0">
-        <thead style="background:var(--chess-dark);color:white;">
+  {# --------------------------------------------------------------- table #}
+  <div class="panel panel-tight quiet" style="border-color:transparent;">
+    {% if members %}
+      <table class="grid">
+        <thead>
           <tr>
-            <th style="width:60px;">Rank</th>
+            <th style="width:3.5rem;">#</th>
             <th>Player</th>
-            <th>Association</th>
-            <th>Rating</th>
-            <th>Role</th>
+            <th class="hide-phone">Club</th>
+            <th class="r">Rating</th>
+            <th class="hide-phone">Role</th>
           </tr>
         </thead>
         <tbody>
           {% for member in members %}
           {% with rank=page_obj.start_index|add:forloop.counter0 %}
           <tr>
-            <td class="text-center fw-bold">
-              {% if rank == 1 %}
-                <span style="color:#f5a623;font-size:1.2rem;">♛</span>
-              {% elif rank == 2 %}
-                <span style="color:#aaa;font-size:1.1rem;">♟</span>
-              {% elif rank == 3 %}
-                <span style="color:#cd7f32;font-size:1.1rem;">♟</span>
-              {% else %}
-                {{ rank }}
-              {% endif %}
+            {% comment %}
+              Plain numbers. The old version drew a crown and two pawns for
+              the top three, using U+265B and U+265F. Those are chess glyphs
+              rather than emoji so the house rule is arguable, but on the
+              mid-range Android handsets this site is actually opened on they
+              fall back to a font with no Miscellaneous Symbols coverage and
+              render as empty boxes. A number always renders.
+            {% endcomment %}
+            <td class="num" {% if rank <= 3 %}style="color:var(--bch-ochre);font-weight:700;"{% endif %}>
+              {{ rank }}
             </td>
             <td>
-              <a href="{% url 'player_profile' member.pk %}" class="text-decoration-none">
-                <strong>{{ member.user.get_full_name|default:member.user.username }}</strong>
+              <a href="{% url 'player_profile' member.pk %}" style="font-weight:600;">
+                {{ member.user.get_full_name|default:member.user.username }}
               </a>
+              {# The club, for phones where its own column is hidden. #}
+              <div class="tiny muted show-phone">{{ member.association.name }}</div>
             </td>
-            <td class="text-muted">{{ member.association.name }}</td>
-            <td>
-              <span class="fw-bold" style="color:var(--chess-accent);">{{ member.rating }}</span>
-            </td>
-            <td>
-              <span class="badge bg-light text-dark border">{{ member.get_role_display }}</span>
+            <td class="hide-phone small muted">{{ member.association.name }}</td>
+            <td class="r num" style="font-weight:700;">{{ member.rating }}</td>
+            <td class="hide-phone">
+              <span class="tag tag-quiet">{{ member.get_role_display }}</span>
             </td>
           </tr>
           {% endwith %}
-          {% empty %}
-          <tr>
-            <td colspan="5" class="text-center text-muted py-4">
-              <i class="bi bi-trophy" style="font-size:2rem;"></i>
-              <p class="mt-2 mb-0">No ranked players found.</p>
-            </td>
-          </tr>
           {% endfor %}
         </tbody>
       </table>
-    </div>
+    {% else %}
+      <div class="empty" style="color:var(--bch-mist);">
+        <strong style="color:var(--bch-bone);">
+          {% if search or assoc_filter %}Nobody matches that{% else %}No rated players yet{% endif %}
+        </strong>
+        {% if search or assoc_filter %}
+          Try a different name, or clear the filters.
+        {% else %}
+          A player appears here once they have a recorded game. Ratings come
+          from tournament rounds and from player challenges.
+        {% endif %}
+      </div>
+    {% endif %}
   </div>
 
   {% include 'partials/pagination.html' %}
 
-  <p class="text-muted small mt-3">
-    <i class="bi bi-info-circle"></i>
-    Rankings use the ELO rating system. New players start at 1200. Ratings update automatically after each match result is recorded.
+  <p class="tiny muted" style="margin-top:var(--s-5);max-width:62ch;">
+    Ratings use ELO with a K factor of 32, starting at 1200, and update
+    automatically when a result is recorded. These are this site's own ratings.
+    They are not FIDE ratings.
   </p>
 
 </div>

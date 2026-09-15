@@ -1,43 +1,53 @@
 {% extends 'base.html' %}
 
-{% block title %}Login — ChessHub{% endblock %}
+{% block title %}Log in{% endblock %}
+
+{% comment %}
+  A narrow single column, not a centred card floating in a grid.
+
+  The old version opened with a 2.5rem chess pawn glyph, which on the Android
+  handsets this site is opened on frequently renders as an empty box: the
+  first thing a returning player saw was a missing character.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-  <div class="row justify-content-center">
-    <div class="col-md-5">
-      <div class="card p-4 p-md-5">
-        <div class="text-center mb-4">
-          <span style="font-size:2.5rem;">♟</span>
-          <h4 class="fw-bold mt-2">Sign in to ChessHub</h4>
-          <p class="text-muted small">Bulawayo Chess Association</p>
-        </div>
+<div class="wrap page" style="max-width:26rem;">
 
-        {% if form.errors %}
-          <div class="alert alert-danger py-2 small">Invalid username or password.</div>
-        {% endif %}
+  <h1 class="page-title">Log in</h1>
+  <p class="page-sub">Bulawayo Chess Hub</p>
 
-        <form method="post">
-          {% csrf_token %}
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Username</label>
-            <input type="text" name="username" class="form-control" autofocus required>
-          </div>
-          <div class="mb-4">
-            <label class="form-label fw-semibold">Password</label>
-            <input type="password" name="password" class="form-control" required>
-          </div>
-          <input type="hidden" name="next" value="{{ next }}">
-          <button type="submit" class="btn btn-chess w-100 py-2 fw-semibold">Login</button>
-        </form>
-
-        <hr class="my-3">
-        <p class="text-center text-muted small mb-0">
-          Don't have an account?
-          <a href="{% url 'signup' %}" class="fw-semibold text-decoration-none">Create one free</a>
-        </p>
-      </div>
+  {% if form.errors %}
+    {# Deliberately vague. Saying which of the two was wrong tells someone
+       probing the site whether a username exists. #}
+    <div class="note note-error" style="margin-bottom:var(--s-4);">
+      That username and password do not match. Check both and try again.
     </div>
-  </div>
+  {% endif %}
+
+  <form method="post" class="stack-md">
+    {% csrf_token %}
+
+    <div class="field">
+      <label class="lbl" for="id_username">Username</label>
+      <input type="text" name="username" id="id_username"
+             autocomplete="username" autocapitalize="none" autofocus required>
+    </div>
+
+    <div class="field">
+      <label class="lbl" for="id_password">Password</label>
+      <input type="password" name="password" id="id_password"
+             autocomplete="current-password" required>
+    </div>
+
+    <input type="hidden" name="next" value="{{ next }}">
+    <button type="submit" class="btn btn-primary" style="width:100%;">Log in</button>
+  </form>
+
+  <p class="small muted" style="margin-top:var(--s-5);">
+    No account yet? <a href="{% url 'signup' %}">Create one</a>. It is free.
+  </p>
+
 </div>
 {% endblock %}

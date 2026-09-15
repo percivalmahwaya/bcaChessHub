@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Security &amp; Trust — ChessHub{% endblock %}
+{% block title %}Security and trust{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -27,7 +27,7 @@
     <h1>Security <span class="accent">&amp; Trust</span></h1>
     <p class="lead mb-0" style="max-width:46rem;">
       ChessHub asks members to create an account and, for some tournaments, to pay
-      an entry fee. This page sets out exactly what protects that — and, just as
+      an entry fee. This page sets out exactly what protects that and, just as
       importantly, what does not yet.
     </p>
   </div>
@@ -37,7 +37,7 @@
 
   <div class="alert alert-light border" role="alert">
     <strong>Everything listed below is implemented and running.</strong> Nothing here
-    is planned, aspirational, or "coming soon" — anything in that category is in the
+    is planned, aspirational, or "coming soon". Anything in that category is in the
     <a href="#gaps">Not yet done</a> section at the bottom, named plainly.
   </div>
 
@@ -93,7 +93,7 @@
           <div class="sec-icon mb-2"><i class="bi bi-key"></i></div>
           <h5 class="card-title">Passwords are never stored</h5>
           <ul class="sec-list">
-            <li>Only a salted PBKDF2 hash is kept — your actual password is not recoverable by anyone, including administrators</li>
+            <li>Only a salted PBKDF2 hash is kept, so your actual password is not recoverable by anyone, including administrators</li>
             <li>New passwords are checked against common-password lists, minimum length, and similarity to your own details</li>
           </ul>
         </div>
@@ -117,7 +117,7 @@
   <div class="card">
     <div class="card-body">
       <p class="text-muted mb-3" style="max-width:52rem;">
-        The most dangerous failures are the quiet ones — a system that looks healthy
+        The most dangerous failures are the quiet ones: a system that looks healthy
         while doing nothing. ChessHub is built to refuse to start rather than run in a
         state that only appears to work.
       </p>
@@ -146,7 +146,7 @@
         <div class="card-body text-center">
           <div class="display-6 fw-bold" style="color:var(--chess-accent);">29</div>
           <p class="mb-1 fw-semibold">live deployment checks</p>
-          <p class="text-muted small mb-0">A separate audit that inspects the running site and its configuration, not just the source code — including probing the payment endpoints from outside to confirm they refuse what they should.</p>
+          <p class="text-muted small mb-0">A separate audit that inspects the running site and its configuration, not just the source code, including probing the payment endpoints from outside to confirm they refuse what they should.</p>
         </div>
       </div>
     </div>
