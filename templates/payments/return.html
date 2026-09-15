@@ -1,59 +1,78 @@
 {% extends 'base.html' %}
-{% block title %}Payment {{ payment.status|title }} — {{ tournament.name }}{% endblock %}
+
+{% block title %}Payment {{ payment.get_status_display|default:payment.status }}{% endblock %}
+
+{% comment %}
+  Where a player lands after Paynow. Three outcomes, and the difference
+  between them matters more here than anywhere else on the site, because one
+  of them means money has left their EcoCash account.
+
+  The old version leaned on a 3.5rem emoji for each state: a tick, a cross, an
+  hourglass. On a handset without coverage all three render as the same empty
+  box, which makes paid, failed and pending look identical on the one page
+  where they must not. Each state now says what happened in words, and the
+  reference is shown in every case so it can be quoted to the club.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-  <div class="row justify-content-center">
-    <div class="col-md-5 text-center">
-      <div class="card p-4 p-md-5">
+<div class="wrap page" style="max-width:30rem;">
 
-        {% if payment.status == 'completed' %}
-          <div style="font-size:3.5rem;line-height:1;" class="mb-3">✅</div>
-          <h4 class="fw-bold mb-2 text-success">Payment Confirmed</h4>
-          <p class="text-muted mb-4">
-            Your payment of <strong>{{ payment.currency }} {{ payment.amount }}</strong>
-            was received. You are now registered for
-            <strong>{{ tournament.name }}</strong>.
-          </p>
-          <a href="{% url 'tournament_detail' tournament.pk %}" class="btn btn-chess w-100 mb-2">
-            View Tournament
-          </a>
-          <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm w-100">
-            My Dashboard
-          </a>
+  {% if payment.status == 'completed' %}
 
-        {% elif payment.status in 'cancelled,failed' %}
-          <div style="font-size:3.5rem;line-height:1;" class="mb-3">❌</div>
-          <h4 class="fw-bold mb-2 text-danger">Payment {{ payment.status|title }}</h4>
-          <p class="text-muted mb-4">
-            Your payment was not completed. No money has been charged.
-            You can try again from the tournament page.
-          </p>
-          <a href="{% url 'payment_initiate' tournament.pk %}" class="btn btn-chess w-100 mb-2">
-            Try Again
-          </a>
-          <a href="{% url 'tournament_detail' tournament.pk %}" class="btn btn-outline-secondary btn-sm w-100">
-            Return to Tournament
-          </a>
-
-        {% else %}
-          <div style="font-size:3.5rem;line-height:1;" class="mb-3">⏳</div>
-          <h4 class="fw-bold mb-2">Payment Pending</h4>
-          <p class="text-muted mb-4">
-            Your payment is still being processed. Once confirmed, your
-            registration will be activated automatically.
-          </p>
-          <a href="{% url 'tournament_detail' tournament.pk %}" class="btn btn-chess w-100">
-            Return to Tournament
-          </a>
-        {% endif %}
-
-        <hr class="my-3">
-        <p class="text-muted small mb-0">
-          Reference: <code>{{ payment.paynow_reference|default:"—" }}</code>
-        </p>
-      </div>
+    <h1 class="page-title">Payment received</h1>
+    <div class="note note-success">
+      <strong>{{ payment.currency }} {{ payment.amount }} received.</strong>
+      Your place in {{ tournament.name }} is paid for.
     </div>
-  </div>
+    <p class="small muted">
+      The club still confirms entries by hand, so your place shows as
+      confirmed once a director has checked it off. You do not need to pay
+      again, whatever the tournament page says in the meantime.
+    </p>
+    <div style="display:flex;gap:var(--s-3);flex-wrap:wrap;margin-top:var(--s-5);">
+      <a class="btn btn-primary" href="{% url 'tournament_detail' tournament.pk %}">Back to the tournament</a>
+      <a class="btn btn-quiet" href="{% url 'dashboard' %}">Your dashboard</a>
+    </div>
+
+  {% elif payment.status in 'cancelled,failed' %}
+
+    <h1 class="page-title">Payment did not go through</h1>
+    <div class="note note-error">
+      <strong>Nothing has been charged.</strong>
+      The payment was {{ payment.status }}, so no money left your account and
+      your place is not held.
+    </div>
+    <div style="display:flex;gap:var(--s-3);flex-wrap:wrap;margin-top:var(--s-5);">
+      <a class="btn btn-primary" href="{% url 'payment_initiate' tournament.pk %}">Try again</a>
+      <a class="btn btn-quiet" href="{% url 'tournament_detail' tournament.pk %}">Back to the tournament</a>
+    </div>
+
+  {% else %}
+
+    <h1 class="page-title">Payment still going through</h1>
+    <div class="note note-warning">
+      <strong>Not finished yet.</strong>
+      Your payment is still with Paynow. When it clears, your entry updates by
+      itself. You do not need to pay a second time.
+    </div>
+    <p class="small muted">
+      If it is still showing this in a few hours, quote the reference below to
+      your club rather than paying again.
+    </p>
+    <div style="margin-top:var(--s-5);">
+      <a class="btn btn-primary" href="{% url 'tournament_detail' tournament.pk %}">Back to the tournament</a>
+    </div>
+
+  {% endif %}
+
+  <p class="tiny muted" style="margin-top:var(--s-6);padding-top:var(--s-4);border-top:var(--line);">
+    Reference:
+    <code class="num" style="background:var(--bch-bone);padding:2px 6px;border-radius:2px;">
+      {{ payment.paynow_reference|default:"not issued" }}
+    </code>
+  </p>
+
 </div>
 {% endblock %}

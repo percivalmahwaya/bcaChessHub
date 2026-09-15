@@ -1,136 +1,180 @@
 {% extends 'base.html' %}
-{% block title %}Pay Registration Fee — {{ tournament.name }}{% endblock %}
+
+{% block title %}Pay to enter {{ tournament.name }}{% endblock %}
+
+{% comment %}
+  THE PAGE WHERE MONEY LEAVES SOMEBODY'S ECOCASH ACCOUNT. It gets the most
+  care of anything on this site.
+
+  THE OLD VERSION DID NOT WORK WITHOUT JAVASCRIPT. The radio inputs were
+  `hidden`, and choosing a payment method was a click handler that added a
+  class. If the script failed to run, on a bad connection or an old browser,
+  the three options were unclickable and the form was stuck on EcoCash with no
+  way to tell. On a payment form, on a metered mobile connection, that is not
+  an acceptable failure mode.
+
+  Selection is now pure CSS on real, focusable radio inputs: it works with the
+  keyboard, it works for a screen reader, and it works with every script on
+  the page blocked. The small script that remains only hides the phone field
+  for card payments and relabels the button, and if it never runs the form is
+  still completely usable.
+
+  Emoji removed from the three methods for the usual reason, and because a
+  missing glyph next to a payment option is the kind of thing that makes
+  somebody abandon a transaction.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .gw { display: block; cursor: pointer; margin-bottom: var(--s-2); }
+  .gw input {
+    /* Visually hidden but still focusable and still a real radio. Never
+       `hidden`, which removes it from the accessibility tree and from the
+       keyboard entirely. */
+    position: absolute; opacity: 0; width: 1px; height: 1px;
+  }
+  .gw .body {
+    border: 2px solid var(--bch-sand); border-radius: var(--r);
+    padding: var(--s-3) var(--s-4);
+    display: flex; align-items: baseline; gap: var(--s-3);
+  }
+  .gw input:checked + .body {
+    border-color: var(--bch-terracotta);
+    background: rgba(184, 92, 56, .06);
+  }
+  .gw input:focus-visible + .body {
+    outline: 2px solid var(--bch-terracotta); outline-offset: 2px;
+  }
+  .gw .mark { margin-left: auto; color: var(--bch-terracotta);
+              font-weight: 700; visibility: hidden; }
+  .gw input:checked + .body .mark { visibility: visible; }
+  .amount {
+    text-align: center; padding: var(--s-5); border-radius: var(--r);
+    background: var(--bch-ink); color: var(--bch-bone);
+    margin-bottom: var(--s-5);
+  }
+  .amount .n {
+    font-family: var(--font-mono); font-size: var(--t-3xl);
+    font-weight: 700; color: var(--bch-ochre); display: block;
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-  <div class="row justify-content-center">
-    <div class="col-md-6">
+<div class="wrap page" style="max-width:30rem;">
 
-      {% if sandbox %}
-      <div class="alert alert-warning py-2 mb-4 small">
-        <strong>Sandbox mode</strong> — No real money will be charged. Use any phone number.
-      </div>
-      {% endif %}
-
-      <div class="card p-4 p-md-5">
-        <h4 class="fw-bold mb-1">Pay Registration Fee</h4>
-        <p class="text-muted small mb-4">{{ tournament.name }}</p>
-
-        <!-- Amount -->
-        <div class="text-center py-3 mb-4 rounded" style="background:#f8f9fa;">
-          <div style="font-size:2.2rem;font-weight:800;color:var(--chess-accent);">
-            {{ tournament.currency }} {{ tournament.registration_fee }}
-          </div>
-          <div class="text-muted small mt-1">Registration fee</div>
-        </div>
-
-        <form method="post" id="payForm">
-          {% csrf_token %}
-
-          <!-- Gateway selection -->
-          <p class="fw-semibold mb-2 small text-uppercase" style="letter-spacing:0.05em;color:#888;">Payment Method</p>
-          <div class="d-flex flex-column gap-2 mb-4" id="gatewayOptions">
-
-            <label class="gateway-option selected" for="gw_ecocash">
-              <input type="radio" name="gateway" value="ecocash" id="gw_ecocash" checked hidden>
-              <div class="d-flex align-items-center gap-3">
-                <span style="font-size:1.4rem;">📱</span>
-                <div>
-                  <div class="fw-semibold">EcoCash</div>
-                  <div class="text-muted small">Econet mobile money</div>
-                </div>
-                <span class="ms-auto checkmark">✓</span>
-              </div>
-            </label>
-
-            <label class="gateway-option" for="gw_innbucks">
-              <input type="radio" name="gateway" value="innbucks" id="gw_innbucks" hidden>
-              <div class="d-flex align-items-center gap-3">
-                <span style="font-size:1.4rem;">💳</span>
-                <div>
-                  <div class="fw-semibold">InnBucks</div>
-                  <div class="text-muted small">NetOne mobile money</div>
-                </div>
-                <span class="ms-auto checkmark" style="visibility:hidden;">✓</span>
-              </div>
-            </label>
-
-            <label class="gateway-option" for="gw_web">
-              <input type="radio" name="gateway" value="web" id="gw_web" hidden>
-              <div class="d-flex align-items-center gap-3">
-                <span style="font-size:1.4rem;">🌐</span>
-                <div>
-                  <div class="fw-semibold">Card / PayPal</div>
-                  <div class="text-muted small">VISA, Mastercard, PayPal via Paynow</div>
-                </div>
-                <span class="ms-auto checkmark" style="visibility:hidden;">✓</span>
-              </div>
-            </label>
-
-          </div>
-
-          <!-- Phone number (shown for mobile methods) -->
-          <div id="phoneField" class="mb-4">
-            <label class="form-label fw-semibold">Mobile Number</label>
-            <div class="input-group">
-              <span class="input-group-text">+263</span>
-              <input type="tel" name="phone_number" id="phoneInput"
-                     class="form-control" placeholder="77 123 4567"
-                     pattern="[0-9\s]{9,12}" autocomplete="tel">
-            </div>
-            <div class="form-text">Enter your EcoCash / InnBucks registered number.</div>
-          </div>
-
-          <button type="submit" class="btn btn-chess w-100 py-2 fw-semibold" id="payBtn">
-            Pay {{ tournament.currency }} {{ tournament.registration_fee }} with EcoCash
-          </button>
-        </form>
-
-        <p class="text-center text-muted small mt-3 mb-0">
-          Secured by <strong>Paynow Zimbabwe</strong>
-        </p>
-      </div>
-
+  {% if sandbox %}
+    <div class="note note-warning">
+      <strong>Test mode.</strong> No real money moves. This should never be
+      visible on the live site, and the application refuses to start in
+      production with it switched on.
     </div>
-  </div>
-</div>
+  {% endif %}
 
-<style>
-.gateway-option {
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  padding: 14px 16px;
-  cursor: pointer;
-  transition: border-color 0.15s;
-}
-.gateway-option.selected {
-  border-color: var(--chess-accent);
-  background: #fff5f7;
-}
-.gateway-option .checkmark { color: var(--chess-accent); font-weight: bold; }
-</style>
+  <h1 class="page-title">Entry fee</h1>
+  <p class="page-sub">{{ tournament.name }}</p>
+
+  <div class="amount">
+    <span class="n">{{ tournament.currency }} {{ tournament.registration_fee }}</span>
+    <span class="tiny" style="color:var(--bch-mist);">to enter</span>
+  </div>
+
+  <form method="post" id="payForm">
+    {% csrf_token %}
+
+    <p class="lbl" style="margin-bottom:var(--s-2);">How would you like to pay?</p>
+
+    <label class="gw" for="gw_ecocash">
+      <input type="radio" name="gateway" value="ecocash" id="gw_ecocash" checked>
+      <span class="body">
+        <span>
+          <strong>EcoCash</strong>
+          <span class="tiny muted" style="display:block;">Econet mobile money</span>
+        </span>
+        <span class="mark">Chosen</span>
+      </span>
+    </label>
+
+    <label class="gw" for="gw_innbucks">
+      <input type="radio" name="gateway" value="innbucks" id="gw_innbucks">
+      <span class="body">
+        <span>
+          <strong>InnBucks</strong>
+          <span class="tiny muted" style="display:block;">NetOne mobile money</span>
+        </span>
+        <span class="mark">Chosen</span>
+      </span>
+    </label>
+
+    <label class="gw" for="gw_web">
+      <input type="radio" name="gateway" value="web" id="gw_web">
+      <span class="body">
+        <span>
+          <strong>Card or PayPal</strong>
+          <span class="tiny muted" style="display:block;">Visa, Mastercard or PayPal, through Paynow</span>
+        </span>
+        <span class="mark">Chosen</span>
+      </span>
+    </label>
+
+    <div class="field" id="phoneField" style="margin-top:var(--s-5);">
+      <label class="lbl" for="phoneInput">Mobile number</label>
+      <div style="display:flex;align-items:stretch;">
+        <span class="num" style="display:flex;align-items:center;padding:0 var(--s-3);
+              border:1px solid var(--bch-clay);border-right:0;
+              border-radius:var(--r) 0 0 var(--r);background:var(--bch-bone);
+              color:var(--bch-stone);">+263</span>
+        <input type="tel" name="phone_number" id="phoneInput" class="num"
+               placeholder="77 123 4567" pattern="[0-9\s]{9,12}"
+               autocomplete="tel" inputmode="tel"
+               style="border-radius:0 var(--r) var(--r) 0;">
+      </div>
+      <span class="help">The number your EcoCash or InnBucks is registered to.</span>
+    </div>
+
+    <button type="submit" class="btn btn-primary" id="payBtn"
+            style="width:100%;margin-top:var(--s-4);">
+      Pay {{ tournament.currency }} {{ tournament.registration_fee }}
+    </button>
+  </form>
+
+  <p class="tiny muted" style="text-align:center;margin-top:var(--s-4);">
+    Handled by Paynow Zimbabwe. This site never sees your PIN, and the
+    confirmation that comes back is checked against a signature before
+    anything is marked paid.
+  </p>
+
+</div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-const options = document.querySelectorAll('.gateway-option');
-const phoneField = document.getElementById('phoneField');
-const payBtn = document.getElementById('payBtn');
-const labels = {ecocash: 'EcoCash', innbucks: 'InnBucks', web: 'Card / PayPal'};
+// Progressive enhancement only. Choosing a method already works without this,
+// through :checked in the stylesheet. All this does is hide the phone field
+// when paying by card and keep the button honest about what it will do. If it
+// never runs, the form still submits correctly.
+(function () {
+  var form = document.getElementById('payForm');
+  if (!form) { return; }
+  var phoneField = document.getElementById('phoneField');
+  var phoneInput = document.getElementById('phoneInput');
+  var payBtn = document.getElementById('payBtn');
+  var labels = { ecocash: 'EcoCash', innbucks: 'InnBucks', web: 'card' };
+  var base = 'Pay {{ tournament.currency }} {{ tournament.registration_fee }}';
 
-options.forEach(opt => {
-  opt.addEventListener('click', () => {
-    options.forEach(o => {
-      o.classList.remove('selected');
-      o.querySelector('.checkmark').style.visibility = 'hidden';
-    });
-    opt.classList.add('selected');
-    opt.querySelector('.checkmark').style.visibility = 'visible';
-    const val = opt.querySelector('input').value;
-    phoneField.style.display = val === 'web' ? 'none' : 'block';
-    document.getElementById('phoneInput').required = val !== 'web';
-    payBtn.textContent = `Pay {{ tournament.currency }} {{ tournament.registration_fee }} with ${labels[val]}`;
-  });
-});
+  function sync() {
+    var chosen = form.querySelector('input[name="gateway"]:checked');
+    if (!chosen) { return; }
+    var byCard = chosen.value === 'web';
+    phoneField.style.display = byCard ? 'none' : '';
+    phoneInput.required = !byCard;
+    payBtn.textContent = base + ' by ' + labels[chosen.value];
+  }
+
+  form.addEventListener('change', sync);
+  sync();
+}());
 </script>
-{% endblock %}
 {% endblock %}

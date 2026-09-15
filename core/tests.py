@@ -187,9 +187,6 @@ class HouseRules(TestCase):
         "members/admin_stats.html",
         "members/edit_profile.html",
         "members/manage.html",
-        "payments/pay.html",
-        "payments/return.html",
-        "payments/sandbox_checkout.html",
         "tournaments/manage.html",
         "tournaments/print.html",
         }
