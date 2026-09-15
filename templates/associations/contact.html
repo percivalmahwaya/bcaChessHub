@@ -1,109 +1,85 @@
 {% extends 'base.html' %}
-{% block title %}Contact {{ assoc.name }} — ChessHub{% endblock %}
+
+{% block title %}Contact {{ assoc.name }}{% endblock %}
+
+{% comment %}
+  The form whose "Please fill in all fields" error was the first message ever
+  displayed by this site, on 2026-09-15. It rendered its own copy of the
+  message block; base.html owns that now.
+
+  It also carried the honest caveat below, which stays: email delivery is not
+  switched on in production yet, so somebody filling this in has a right to
+  know their message may not arrive by mail. The security page says the same
+  thing in its "Not yet done" section, and the two must not disagree.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5" style="max-width:680px;">
+<div class="wrap page" style="max-width:34rem;">
 
-  <div class="text-muted small mb-3">
-    <a href="{% url 'association_list' %}" class="text-muted">&larr; All Associations</a>
-    &nbsp;/&nbsp;
-    <a href="{% url 'association_detail' assoc.pk %}" class="text-muted">{{ assoc.name }}</a>
-  </div>
+  <p class="tiny muted">
+    <a href="{% url 'association_list' %}">All clubs</a> /
+    <a href="{% url 'association_detail' assoc.pk %}">{{ assoc.name }}</a>
+  </p>
 
-  <div class="card p-4">
+  <h1 class="page-title">Contact {{ assoc.name }}</h1>
+  <p class="page-sub">{{ assoc.city }}, {{ assoc.country }}</p>
 
-    <div class="d-flex align-items-center gap-3 mb-4">
-      {% if assoc.logo %}
-        <img src="{{ assoc.logo.url }}" alt="{{ assoc.name }}"
-             style="width:52px;height:52px;object-fit:contain;border-radius:8px;flex-shrink:0;">
-      {% else %}
-        <div style="width:52px;height:52px;border-radius:8px;background:var(--chess-dark);
-                    display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0;">
-          ♟
-        </div>
-      {% endif %}
-      <div>
-        <h4 class="fw-bold mb-0">Contact {{ assoc.name }}</h4>
-        <div class="text-muted small">{{ assoc.city }}, {{ assoc.country }}</div>
+  <form method="post" novalidate>
+    {% csrf_token %}
+
+    <div class="inline-form" style="margin-bottom:var(--s-4);">
+      <div class="field">
+        <label class="lbl" for="id_name">Your name</label>
+        <input type="text" name="name" id="id_name" maxlength="100" required
+               autocomplete="name" value="{{ request.POST.name|default:'' }}">
+      </div>
+      <div class="field">
+        <label class="lbl" for="id_email">Your email</label>
+        <input type="email" name="email" id="id_email" maxlength="200" required
+               autocomplete="email" autocapitalize="none"
+               value="{{ request.POST.email|default:'' }}">
       </div>
     </div>
 
+    <div class="field">
+      <label class="lbl" for="id_subject">Subject</label>
+      <input type="text" name="subject" id="id_subject" maxlength="200" required
+             value="{{ request.POST.subject|default:'' }}"
+             placeholder="Joining, a tournament question, something else">
+    </div>
 
-    <form method="post" novalidate>
-      {% csrf_token %}
+    <div class="field">
+      <label class="lbl" for="id_body">Message</label>
+      <textarea name="body" id="id_body" rows="7" required>{{ request.POST.body|default:'' }}</textarea>
+    </div>
 
-      <div class="row g-3 mb-3">
-        <div class="col-sm-6">
-          <label class="form-label small fw-semibold">Your Name <span class="text-danger">*</span></label>
-          <input type="text" name="name" class="form-control" maxlength="100" required
-                 value="{{ request.POST.name|default:'' }}"
-                 placeholder="John Smith">
-        </div>
-        <div class="col-sm-6">
-          <label class="form-label small fw-semibold">Your Email <span class="text-danger">*</span></label>
-          <input type="email" name="email" class="form-control" maxlength="200" required
-                 value="{{ request.POST.email|default:'' }}"
-                 placeholder="john@example.com">
-        </div>
-      </div>
+    <div style="display:flex;gap:var(--s-3);flex-wrap:wrap;align-items:center;">
+      <button type="submit" class="btn btn-primary">Send</button>
+      <a class="btn btn-quiet" href="{% url 'association_detail' assoc.pk %}">Cancel</a>
+    </div>
+  </form>
 
-      <div class="mb-3">
-        <label class="form-label small fw-semibold">Subject <span class="text-danger">*</span></label>
-        <input type="text" name="subject" class="form-control" maxlength="200" required
-               value="{{ request.POST.subject|default:'' }}"
-               placeholder="e.g. Membership inquiry, Tournament question…">
-      </div>
-
-      <div class="mb-4">
-        <label class="form-label small fw-semibold">Message <span class="text-danger">*</span></label>
-        <textarea name="body" class="form-control" rows="6" required
-                  placeholder="Write your message here…">{{ request.POST.body|default:'' }}</textarea>
-      </div>
-
-      <div class="d-flex gap-3 align-items-center flex-wrap">
-        <button type="submit" class="btn btn-chess">
-          <i class="bi bi-send"></i> Send Message
-        </button>
-        <a href="{% url 'association_detail' assoc.pk %}" class="btn btn-outline-secondary">
-          Cancel
-        </a>
-        {% if assoc.email %}
-        <span class="text-muted small ms-auto">
-          Sent to <strong>{{ assoc.name }}</strong>
-        </span>
+  {% if assoc.email or assoc.phone or assoc.website %}
+    <div class="panel" style="margin-top:var(--s-6);">
+      <div class="panel-head"><h3>Or reach them directly</h3></div>
+      <div class="panel-body stack-sm small">
+        {% if assoc.email %}<div><a href="mailto:{{ assoc.email }}">{{ assoc.email }}</a></div>{% endif %}
+        {% if assoc.phone %}<div class="num">{{ assoc.phone }}</div>{% endif %}
+        {% if assoc.website %}
+          <div><a href="{{ assoc.website }}" target="_blank" rel="noopener">{{ assoc.website }}</a></div>
         {% endif %}
       </div>
-    </form>
-
-  </div>
-
-  {% if assoc.phone or assoc.email or assoc.website %}
-  <div class="card p-4 mt-3">
-    <h6 class="fw-bold mb-3">Other ways to reach us</h6>
-    <div class="d-flex flex-column gap-2" style="font-size:0.88rem;">
-      {% if assoc.email %}
-      <div>
-        <i class="bi bi-envelope text-muted me-2"></i>
-        <a href="mailto:{{ assoc.email }}" class="text-decoration-none">{{ assoc.email }}</a>
-      </div>
-      {% endif %}
-      {% if assoc.phone %}
-      <div>
-        <i class="bi bi-telephone text-muted me-2"></i>
-        <span>{{ assoc.phone }}</span>
-      </div>
-      {% endif %}
-      {% if assoc.website %}
-      <div>
-        <i class="bi bi-globe text-muted me-2"></i>
-        <a href="{{ assoc.website }}" target="_blank" rel="noopener" class="text-decoration-none">
-          {{ assoc.website }}
-        </a>
-      </div>
-      {% endif %}
     </div>
-  </div>
   {% endif %}
+
+  <p class="tiny muted" style="margin-top:var(--s-5);max-width:58ch;">
+    Email delivery is not switched on for this site yet, so if your message
+    matters, use the club's own address or phone number above as well. This is
+    named as an open gap on the
+    <a href="{% url 'security' %}">security and trust</a> page.
+  </p>
 
 </div>
 {% endblock %}

@@ -1,226 +1,167 @@
 {% extends 'base.html' %}
-{% block title %}{{ assoc.name }} — ChessHub{% endblock %}
+
+{% block title %}{{ assoc.name }}{% endblock %}
+{% block description %}{{ assoc.name }} in {{ assoc.city }}: players, ratings and tournaments.{% endblock %}
+
+{% comment %}
+  A club's public page.
+
+  The five statistics were five bordered cards in a row, each with one number
+  in a different colour: accent, green, amber, blue, gold. Five colours across
+  five boxes means none of them signifies anything, and on a phone the row
+  wrapped into a block taller than the content it introduced. They are one
+  quiet line now, which is how the home page does the same job.
+
+  Current and recent tournaments were two different layouts for the same
+  thing. One table, sorted, with the state in a tag.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5">
+<div class="wrap page">
 
-  <!-- Breadcrumb -->
-  <div class="text-muted small mb-3">
-    <a href="{% url 'association_list' %}" class="text-muted">&larr; All Associations</a>
+  <p class="tiny muted"><a href="{% url 'association_list' %}">All clubs</a></p>
+
+  <div class="between" style="margin-bottom:var(--s-4);">
+    <div>
+      <h1 class="page-title">{{ assoc.name }}</h1>
+      <p class="page-sub" style="margin:0;">
+        {{ assoc.city }}, {{ assoc.country }}
+        {% if assoc.founded_year %}&middot; founded <span class="num">{{ assoc.founded_year }}</span>{% endif %}
+      </p>
+    </div>
+    <a class="btn btn-primary btn-sm" href="{% url 'association_contact' assoc.pk %}">Contact this club</a>
   </div>
 
-  <!-- Header card -->
-  <div class="card p-4 mb-4">
-    <div class="d-flex align-items-center gap-4 flex-wrap">
+  {% if assoc.email or assoc.phone or assoc.website %}
+    <p class="small" style="margin-bottom:var(--s-5);">
+      {% if assoc.email %}<a href="mailto:{{ assoc.email }}">{{ assoc.email }}</a>{% endif %}
+      {% if assoc.phone %}<span class="muted">&nbsp;&middot;&nbsp;</span><span class="num">{{ assoc.phone }}</span>{% endif %}
+      {% if assoc.website %}<span class="muted">&nbsp;&middot;&nbsp;</span><a href="{{ assoc.website }}" target="_blank" rel="noopener">Website</a>{% endif %}
+    </p>
+  {% endif %}
 
-      <!-- Logo -->
-      {% if assoc.logo %}
-        <img src="{{ assoc.logo.url }}" alt="{{ assoc.name }} logo"
-             style="width:90px;height:90px;object-fit:contain;border-radius:12px;flex-shrink:0;">
-      {% else %}
-        <div style="width:90px;height:90px;border-radius:12px;background:var(--chess-dark);
-                    display:flex;align-items:center;justify-content:center;
-                    font-size:2.8rem;flex-shrink:0;">
-          ♟
+  {# One quiet line of numbers, not five cards in five colours. #}
+  <p class="small muted" style="border-block:var(--line);padding-block:var(--s-3);margin-bottom:var(--s-5);">
+    <span class="num" style="color:var(--bch-ink);font-weight:700;">{{ stats.members }}</span> members
+    &nbsp;&middot;&nbsp;
+    <span class="num" style="color:var(--bch-ink);font-weight:700;">{{ stats.players }}</span> players
+    &nbsp;&middot;&nbsp;
+    <span class="num" style="color:var(--bch-ink);font-weight:700;">{{ stats.coaches }}</span> coaches
+    &nbsp;&middot;&nbsp;
+    <span class="num" style="color:var(--bch-ink);font-weight:700;">{{ stats.tournaments }}</span> tournaments
+    &nbsp;&middot;&nbsp;
+    <span class="num" style="color:var(--bch-ink);font-weight:700;">{{ stats.games }}</span> games played
+  </p>
+
+  <div class="row">
+    <div class="col-8">
+
+      <div class="panel panel-tight">
+        <div class="panel-head">
+          <h3>Tournaments</h3>
+          <a href="{% url 'tournament_list' %}">All tournaments</a>
         </div>
-      {% endif %}
-
-      <div class="flex-grow-1">
-        <h2 class="fw-bold mb-1">{{ assoc.name }}</h2>
-        <div class="text-muted small">
-          <i class="bi bi-geo-alt"></i> {{ assoc.city }}, {{ assoc.country }}
-          {% if assoc.founded_year %}
-            &nbsp;&middot;&nbsp; <i class="bi bi-calendar2"></i> Est. {{ assoc.founded_year }}
-          {% endif %}
-        </div>
-        <div class="mt-2 d-flex gap-3 flex-wrap" style="font-size:0.85rem;">
-          {% if assoc.email %}
-            <a href="mailto:{{ assoc.email }}" class="text-muted text-decoration-none">
-              <i class="bi bi-envelope"></i> {{ assoc.email }}
-            </a>
-          {% endif %}
-          {% if assoc.phone %}
-            <span class="text-muted"><i class="bi bi-telephone"></i> {{ assoc.phone }}</span>
-          {% endif %}
-          {% if assoc.website %}
-            <a href="{{ assoc.website }}" target="_blank" rel="noopener" class="text-muted text-decoration-none">
-              <i class="bi bi-globe"></i> Website
-            </a>
-          {% endif %}
-        </div>
-      </div>
-
-      <a href="{% url 'association_contact' assoc.pk %}" class="btn btn-chess btn-sm align-self-start">
-        <i class="bi bi-envelope"></i> Contact Us
-      </a>
-
-    </div>
-  </div>
-
-  <!-- Stats row -->
-  <div class="row g-3 mb-4">
-    <div class="col-6 col-md-4 col-lg-2">
-      <div class="card p-3 text-center">
-        <div class="fw-bold fs-4" style="color:var(--chess-accent);">{{ stats.members }}</div>
-        <div class="text-muted small">Members</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-4 col-lg-2">
-      <div class="card p-3 text-center">
-        <div class="fw-bold fs-4 text-success">{{ stats.players }}</div>
-        <div class="text-muted small">Players</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-4 col-lg-2">
-      <div class="card p-3 text-center">
-        <div class="fw-bold fs-4 text-warning">{{ stats.coaches }}</div>
-        <div class="text-muted small">Coaches</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-4 col-lg-2">
-      <div class="card p-3 text-center">
-        <div class="fw-bold fs-4 text-info">{{ stats.tournaments }}</div>
-        <div class="text-muted small">Tournaments</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-4 col-lg-2">
-      <div class="card p-3 text-center">
-        <div class="fw-bold fs-4" style="color:var(--chess-gold);">{{ stats.games }}</div>
-        <div class="text-muted small">Games Played</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="row g-4">
-
-    <!-- Left column -->
-    <div class="col-lg-8">
-
-      <!-- Active / Upcoming tournaments -->
-      {% if active_tournaments or upcoming_tournaments %}
-      <div class="card p-4 mb-4">
-        <h5 class="fw-bold mb-3"><i class="bi bi-trophy"></i> Current Tournaments</h5>
-        {% for t in active_tournaments %}
-        <div class="d-flex justify-content-between align-items-center p-3 rounded mb-2"
-             style="background:#f8f9fa;">
-          <div>
-            <div class="fw-semibold">{{ t.name }}</div>
-            <div class="text-muted small">
-              <i class="bi bi-geo-alt"></i> {{ t.location }}
-              &nbsp;&middot;&nbsp;
-              <i class="bi bi-calendar"></i> {{ t.start_date|date:"d M Y" }}
-              &nbsp;&middot;&nbsp;
-              {{ t.num_rounds }} rounds
-            </div>
-          </div>
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge rounded-pill text-white badge-status-{{ t.status }}">
-              {{ t.get_status_display }}
-            </span>
-            <a href="{% url 'tournament_detail' t.pk %}" class="btn btn-chess btn-sm">View</a>
-          </div>
-        </div>
-        {% endfor %}
-
-        {% for t in upcoming_tournaments %}
-        <div class="d-flex justify-content-between align-items-center p-3 rounded mb-2"
-             style="background:#f8f9fa;">
-          <div>
-            <div class="fw-semibold">{{ t.name }}</div>
-            <div class="text-muted small">
-              <i class="bi bi-calendar"></i> {{ t.start_date|date:"d M Y" }}
-              &nbsp;&middot;&nbsp; {{ t.num_rounds }} rounds
-            </div>
-          </div>
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-secondary">Upcoming</span>
-            <a href="{% url 'tournament_detail' t.pk %}" class="btn btn-outline-secondary btn-sm">View</a>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      <!-- Recent completed tournaments -->
-      {% if recent_tournaments %}
-      <div class="card p-4">
-        <h5 class="fw-bold mb-3"><i class="bi bi-clock-history"></i> Recent Tournaments</h5>
-        <table class="table table-hover table-sm mb-0">
-          <thead class="table-light">
-            <tr>
-              <th>Tournament</th>
-              <th class="text-center">Rounds</th>
-              <th class="text-center">Players</th>
-              <th class="d-none d-md-table-cell">Date</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for t in recent_tournaments %}
-            <tr>
-              <td class="fw-semibold">{{ t.name }}</td>
-              <td class="text-center text-muted">{{ t.num_rounds }}</td>
-              <td class="text-center text-muted">{{ t.player_count }}</td>
-              <td class="d-none d-md-table-cell text-muted small">{{ t.end_date|date:"M Y" }}</td>
-              <td>
-                <a href="{% url 'tournament_standings' t.pk %}"
-                   class="btn btn-outline-secondary btn-sm py-0 px-2">Results</a>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
-
-      {% if not active_tournaments and not upcoming_tournaments and not recent_tournaments %}
-      <div class="card p-4 text-center text-muted">
-        <div style="font-size:2.5rem;">♟</div>
-        <p class="mt-2 mb-0">No tournaments yet.</p>
-      </div>
-      {% endif %}
-
-    </div>
-
-    <!-- Right column: top players -->
-    <div class="col-lg-4">
-      <div class="card p-4">
-        <h5 class="fw-bold mb-3">
-          <i class="bi bi-bar-chart"></i> Top Players
-        </h5>
-        {% if top_players %}
-        {% for member in top_players %}
-        <div class="d-flex align-items-center justify-content-between py-2
-                    {% if not forloop.last %}border-bottom{% endif %}">
-          <div class="d-flex align-items-center gap-2">
-            <span class="text-muted fw-bold" style="width:1.4rem;font-size:0.85rem;">
-              {% if forloop.counter == 1 %}🥇
-              {% elif forloop.counter == 2 %}🥈
-              {% elif forloop.counter == 3 %}🥉
-              {% else %}{{ forloop.counter }}{% endif %}
-            </span>
-            <div>
-              <a href="{% url 'player_profile' member.pk %}"
-                 class="fw-semibold text-decoration-none" style="font-size:0.9rem;">
-                {{ member.user.get_full_name|default:member.user.username }}
-              </a>
-              <div class="text-muted" style="font-size:0.75rem;">{{ member.get_role_display }}</div>
-            </div>
-          </div>
-          <span class="fw-bold" style="color:var(--chess-accent);">{{ member.rating }}</span>
-        </div>
-        {% endfor %}
-
-        <a href="{% url 'rankings' %}?association={{ assoc.pk }}"
-           class="btn btn-outline-secondary btn-sm w-100 mt-3">
-          Full Rankings
-        </a>
+        {% if active_tournaments or upcoming_tournaments or recent_tournaments %}
+          <table class="grid">
+            <thead>
+              <tr>
+                <th>Tournament</th>
+                <th class="hide-phone">Date</th>
+                <th class="r hide-phone">Rounds</th>
+                <th class="r">State</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in active_tournaments %}
+                <tr>
+                  <td>
+                    <a href="{% url 'tournament_detail' t.pk %}" style="font-weight:600;">{{ t.name }}</a>
+                    <div class="tiny muted">
+                      {{ t.location }}
+                      <span class="show-phone">{{ t.start_date|date:"d M Y" }}</span>
+                    </div>
+                  </td>
+                  <td class="hide-phone small num nowrap">{{ t.start_date|date:"d M Y" }}</td>
+                  <td class="r hide-phone num">{{ t.num_rounds }}</td>
+                  <td class="r"><span class="tag tag-live">{{ t.get_status_display }}</span></td>
+                </tr>
+              {% endfor %}
+              {% for t in upcoming_tournaments %}
+                <tr>
+                  <td>
+                    <a href="{% url 'tournament_detail' t.pk %}" style="font-weight:600;">{{ t.name }}</a>
+                    <div class="tiny muted">
+                      <span class="show-phone">{{ t.start_date|date:"d M Y" }}</span>
+                    </div>
+                  </td>
+                  <td class="hide-phone small num nowrap">{{ t.start_date|date:"d M Y" }}</td>
+                  <td class="r hide-phone num">{{ t.num_rounds }}</td>
+                  <td class="r"><span class="tag tag-soon">Upcoming</span></td>
+                </tr>
+              {% endfor %}
+              {% for t in recent_tournaments %}
+                <tr>
+                  <td>
+                    <a href="{% url 'tournament_standings' t.pk %}" style="font-weight:600;">{{ t.name }}</a>
+                    <div class="tiny muted">
+                      <span class="num">{{ t.player_count }}</span> played
+                      <span class="show-phone">, {{ t.end_date|date:"M Y" }}</span>
+                    </div>
+                  </td>
+                  <td class="hide-phone small num nowrap">{{ t.end_date|date:"M Y" }}</td>
+                  <td class="r hide-phone num">{{ t.num_rounds }}</td>
+                  <td class="r"><span class="tag tag-done">Finished</span></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         {% else %}
-          <p class="text-muted small mb-0">No ranked players yet.</p>
+          <div class="empty">
+            <strong>No tournaments yet</strong>
+            When this club schedules an event it appears here, along with its
+            pairings, standings and results.
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <div class="col-4">
+      <div class="panel panel-tight quiet" style="border-color:transparent;">
+        <div class="panel-head" style="border-bottom-color:rgba(255,255,255,.12);">
+          <h3 style="color:var(--bch-bone);">Top rated</h3>
+          <a href="{% url 'rankings' %}?association={{ assoc.pk }}" style="color:var(--bch-ochre);">Full list</a>
+        </div>
+        {% if top_players %}
+          <table class="grid">
+            <tbody>
+              {% for member in top_players %}
+              <tr>
+                <td class="num muted" style="width:2.5rem;{% if forloop.counter <= 3 %}color:var(--bch-ochre);font-weight:700;{% endif %}">
+                  {{ forloop.counter }}
+                </td>
+                <td>
+                  <a href="{% url 'player_profile' member.pk %}" style="font-weight:600;">
+                    {{ member.user.get_full_name|default:member.user.username }}
+                  </a>
+                  <div class="tiny muted">{{ member.get_role_display }}</div>
+                </td>
+                <td class="r num" style="font-weight:700;">{{ member.rating }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty" style="color:var(--bch-mist);">
+            <strong style="color:var(--bch-bone);">No ratings yet</strong>
+            Players appear once they have a recorded game.
+          </div>
         {% endif %}
       </div>
     </div>
-
   </div>
+
 </div>
 {% endblock %}

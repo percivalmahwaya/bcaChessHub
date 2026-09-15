@@ -35,9 +35,19 @@ class AssociationDetailViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Bulawayo Chess Association')
 
-    def test_detail_page_has_contact_button(self):
+    def test_detail_page_links_to_the_contact_form(self):
+        """There must be a route to the contact page from a club's page.
+
+        This used to assert the literal string 'Contact Us'. That is the
+        button's WORDING, not the requirement, so rewording it to "Contact
+        this club" during the 2026-09-16 redesign failed a test that was not
+        actually about anything that had broken. A test tied to copy teaches
+        people to edit tests until they pass, which is how a suite stops
+        meaning anything. Assert the link.
+        """
         response = self.client.get(reverse('association_detail', args=[self.assoc.pk]))
-        self.assertContains(response, 'Contact Us')
+        self.assertContains(
+            response, reverse('association_contact', args=[self.assoc.pk]))
 
 
 class ContactFormTest(TestCase):

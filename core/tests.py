@@ -183,8 +183,6 @@ class HouseRules(TestCase):
         "\U0000FE0F\U00002B00-\U00002BFF\U00002190-\U000021FF♔-♟]")
 
     NOT_YET_MIGRATED = {
-        "associations/contact.html",
-        "associations/detail.html",
         "matches/detail.html",
         "members/admin_stats.html",
         "members/edit_profile.html",
