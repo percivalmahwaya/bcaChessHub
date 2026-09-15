@@ -200,7 +200,6 @@ class HouseRules(TestCase):
         "payments/pay.html",
         "payments/return.html",
         "payments/sandbox_checkout.html",
-        "tournaments/detail.html",
         "tournaments/manage.html",
         "tournaments/print.html",
         }
@@ -255,3 +254,35 @@ class HouseRules(TestCase):
         css = (settings.BASE_DIR / "static" / "css" / "bch.css").read_text(encoding="utf-8")
         self.assertIn("HOUSE RULES", css,
                       "the rules must survive in the file, not in memory")
+
+
+class DjangoCommentsDoNotLeak(TestCase):
+    """`{# ... #}` is SINGLE LINE ONLY, and a multi-line one ships to the user.
+
+    Django's inline comment tag is lexed line by line. Open one, write four
+    lines of explanation, close it, and the whole thing is emitted verbatim
+    into the response: developer notes about workarounds and old bugs,
+    delivered to every visitor and paid for out of their data bundle.
+
+    This has now happened twice in this project, during the original redesign
+    and again while migrating tournaments/detail.html, where a note reading
+    "the old version hid these behind a Bootstrap dropdown" was served to the
+    public. Twice is a pattern, so it gets a test rather than another
+    resolution to remember.
+
+    Use {% comment %}{% endcomment %} for anything spanning lines.
+    """
+
+    def test_no_multiline_inline_comments(self):
+        offenders = []
+        root = settings.BASE_DIR / "templates"
+        for path in sorted(root.rglob("*.html")):
+            name = path.relative_to(root).as_posix()
+            for number, line in enumerate(
+                    path.read_text(encoding="utf-8").splitlines(), 1):
+                if "{#" in line and "#}" not in line.split("{#", 1)[1]:
+                    offenders.append(f"{name}:{number}")
+        self.assertEqual(
+            offenders, [],
+            "multi-line {# #} comments are rendered into the page for every "
+            f"visitor to download. Use {{% comment %}}: {offenders}")

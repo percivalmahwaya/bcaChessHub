@@ -48,6 +48,24 @@ class Tournament(models.Model):
     def is_full(self):
         return self.player_count >= self.max_players
 
+    @property
+    def spots_left(self):
+        """Confirmed places still available. Never negative.
+
+        detail.html used to work this out in the template with
+            {{ tournament.max_players|add:"-"|add:tournament.player_count }}
+        and Django's `add` filter cannot subtract. It tries int(value) +
+        int(arg), falls back to concatenation, and returns an empty string
+        when both fail, which is exactly what happened: int("-") raises, then
+        32 + "-" raises, so the filter returned "", the next add returned ""
+        again, and |default: printed a dash.
+
+        "Spots left" therefore showed a dash on every tournament this site has
+        ever had, including full ones. Nothing looked broken; it looked like a
+        field nobody had filled in.
+        """
+        return max(self.max_players - self.player_count, 0)
+
 
 class TournamentRegistration(models.Model):
     STATUS_CHOICES = [

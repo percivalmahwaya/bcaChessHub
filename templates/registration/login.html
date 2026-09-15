@@ -19,8 +19,8 @@
   <p class="page-sub">Bulawayo Chess Hub</p>
 
   {% if form.errors %}
-    {# Deliberately vague. Saying which of the two was wrong tells someone
-       probing the site whether a username exists. #}
+    {% comment %}Deliberately vague. Saying which of the two was wrong tells
+     someone probing the site whether a username exists.{% endcomment %}
     <div class="note note-error" style="margin-bottom:var(--s-4);">
       That username and password do not match. Check both and try again.
     </div>

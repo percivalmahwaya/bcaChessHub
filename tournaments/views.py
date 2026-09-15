@@ -62,6 +62,16 @@ def tournament_detail(request, pk):
                 member=member, tournament=tournament
             ).order_by('-created_at').first()
 
+    # Real standings for the sidebar. The old template labelled a box
+    # "Standings" and filled it with the first ten REGISTRATIONS in signup
+    # order, numbered 1 to 10, which is not a standing at all: a player who
+    # entered first and lost every game appeared top of something called
+    # Standings. Now computed, and only once play has begun.
+    top_standings = []
+    if tournament.status in ('in_progress', 'completed'):
+        from .services import compute_standings
+        top_standings = compute_standings(tournament)[:5]
+
     return render(request, 'tournaments/detail.html', {
         'tournament': tournament,
         'registrations': registrations,
@@ -69,6 +79,7 @@ def tournament_detail(request, pk):
         'already_registered': already_registered,
         'my_registration': my_registration,
         'my_payment': my_payment,
+        'top_standings': top_standings,
     })
 
 

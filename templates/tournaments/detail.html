@@ -1,237 +1,258 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ tournament.name }} — ChessHub{% endblock %}
+{% block title %}{{ tournament.name }}{% endblock %}
+{% block description %}{{ tournament.name }} at {{ tournament.location }}: entry, players, pairings and results.{% endblock %}
+
+{% comment %}
+  The tournament overview. Two real faults fixed on the way through:
+
+  SPOTS LEFT NEVER WORKED. It was
+      {{ tournament.max_players|add:"-"|add:tournament.player_count }}
+  and Django's `add` filter cannot subtract. It returns "" when both the
+  integer and the concatenation paths fail, so every tournament this site has
+  ever had showed a dash there, full ones included. It is a model property
+  now, tested.
+
+  THE SIDEBAR "STANDINGS" WERE NOT STANDINGS. It listed the first ten
+  registrations in signup order and numbered them 1 to 10, so whoever entered
+  first sat at the top of a box labelled Standings no matter how they had
+  played. It uses compute_standings now, and only appears once play has begun.
+
+  The export menu was a Bootstrap dropdown, which needed Bootstrap's
+  JavaScript. Three links cost less than the framework that hides them.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
+<div class="wrap page">
 
-  <nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb">
-      <li class="breadcrumb-item"><a href="/tournaments/">Tournaments</a></li>
-      <li class="breadcrumb-item active">{{ tournament.name }}</li>
-    </ol>
-  </nav>
+  {% include 'tournaments/_header.html' with active='overview' %}
 
-  <div class="row g-4">
+  <div class="row">
 
-    <!-- Left: main info -->
-    <div class="col-lg-8">
-      <div class="card p-4 mb-4">
-        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-          <div>
-            <span class="badge rounded-pill text-white badge-status-{{ tournament.status }} me-2">
-              {{ tournament.get_status_display }}
-            </span>
-            <span class="badge bg-light text-dark border">{{ tournament.get_format_display }}</span>
-          </div>
-          <div class="d-flex gap-2 flex-wrap">
-            {% if user.is_staff or user.member.role == 'admin' and user.member.association == tournament.association %}
-              <a href="{% url 'tournament_manage' tournament.pk %}" class="btn btn-chess btn-sm">
-                <i class="bi bi-gear"></i> Manage
-              </a>
-            {% endif %}
-            <div class="dropdown">
-              <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="bi bi-download"></i> Export
-              </button>
-              <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item" href="{% url 'export_print' tournament.pk %}" target="_blank">🖨 Print / PDF Report</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="{% url 'export_standings' tournament.pk %}">📊 Standings CSV</a></li>
-                <li><a class="dropdown-item" href="{% url 'export_pairings' tournament.pk %}">♟ Pairings CSV</a></li>
-              </ul>
-            </div>
+    {# ================================================================ main #}
+    <div class="col-8">
+
+      {% if tournament.description %}
+        <div class="panel" style="margin-bottom:var(--s-5);">
+          <div class="panel-body">
+            <p class="small" style="margin:0;">{{ tournament.description }}</p>
           </div>
         </div>
+      {% endif %}
 
-        <h2 class="fw-bold">{{ tournament.name }}</h2>
-        <p class="text-muted mb-0"><i class="bi bi-building"></i> {{ tournament.association.name }}</p>
-
-        <hr>
-
-        <div class="row g-3 text-center">
-          <div class="col-4">
-            <div class="text-muted small">Location</div>
-            <div class="fw-semibold"><i class="bi bi-geo-alt text-danger"></i> {{ tournament.location }}</div>
-          </div>
-          <div class="col-4">
-            <div class="text-muted small">Dates</div>
-            <div class="fw-semibold">{{ tournament.start_date|date:"d M" }} – {{ tournament.end_date|date:"d M Y" }}</div>
-          </div>
-          <div class="col-4">
-            <div class="text-muted small">Rounds</div>
-            <div class="fw-semibold">{{ tournament.num_rounds }}</div>
-          </div>
+      <div class="panel panel-tight" style="margin-bottom:var(--s-5);">
+        <div class="panel-head">
+          <h3>Players</h3>
+          <span class="tiny muted num">{{ tournament.player_count }}/{{ tournament.max_players }} confirmed</span>
         </div>
-
-        {% if tournament.description %}
-          <hr>
-          <p class="mb-0">{{ tournament.description }}</p>
-        {% endif %}
-      </div>
-
-      <!-- Registered players -->
-      <div class="card p-4 mb-4">
-        <h5 class="fw-bold mb-3">
-          <i class="bi bi-people"></i> Players
-          <span class="badge bg-secondary ms-2">{{ tournament.player_count }}/{{ tournament.max_players }}</span>
-        </h5>
-        <div class="table-responsive">
-          <table class="table table-hover mb-0">
-            <thead class="table-light">
-              <tr><th>#</th><th>Player</th><th>Rating</th><th>Status</th></tr>
+        {% if registrations %}
+          <table class="grid">
+            <thead>
+              <tr>
+                <th style="width:3rem;">#</th>
+                <th>Player</th>
+                <th class="r">Rating</th>
+                <th class="r">Status</th>
+              </tr>
             </thead>
             <tbody>
               {% for reg in registrations %}
               <tr>
-                <td class="text-muted">{{ forloop.counter }}</td>
-                <td>{{ reg.player.user.get_full_name|default:reg.player.user.username }}</td>
-                <td>{{ reg.player.rating }}</td>
+                <td class="num muted">{{ forloop.counter }}</td>
                 <td>
-                  <span class="badge {% if reg.status == 'confirmed' %}bg-success{% elif reg.status == 'pending' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                  <a href="{% url 'player_profile' reg.player.pk %}">
+                    {{ reg.player.user.get_full_name|default:reg.player.user.username }}
+                  </a>
+                </td>
+                <td class="r num">{{ reg.player.rating }}</td>
+                <td class="r">
+                  <span class="tag {% if reg.status == 'confirmed' %}tag-open{% elif reg.status == 'pending' %}tag-soon{% else %}tag-quiet{% endif %}">
                     {{ reg.get_status_display }}
                   </span>
                 </td>
               </tr>
-              {% empty %}
-              <tr><td colspan="4" class="text-center text-muted py-3">No players registered yet.</td></tr>
               {% endfor %}
             </tbody>
           </table>
-        </div>
+        {% else %}
+          <div class="empty">
+            <strong>Nobody has entered yet</strong>
+            Players appear here as they register. A paid tournament confirms a
+            place only once the entry fee has cleared.
+          </div>
+        {% endif %}
       </div>
 
-      <!-- Rounds & Results -->
       {% if rounds %}
-      <div class="card p-4">
-        <h5 class="fw-bold mb-3"><i class="bi bi-list-ol"></i> Results</h5>
-        {% for round in rounds %}
-        <div class="mb-3">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h6 class="fw-semibold mb-0">Round {{ round.number }}</h6>
-            <span class="badge {% if round.is_complete %}bg-success{% else %}bg-secondary{% endif %}">
-              {% if round.is_complete %}Complete{% else %}In Progress{% endif %}
-            </span>
+        <div class="panel panel-tight">
+          <div class="panel-head">
+            <h3>Results by round</h3>
+            <a href="{% url 'tournament_standings' tournament.pk %}">Standings</a>
           </div>
-          <div class="table-responsive">
-            <table class="table table-sm mb-0">
-              <thead class="table-light">
-                <tr><th>Board</th><th>White</th><th>Result</th><th>Black</th></tr>
-              </thead>
+          {% for round in rounds %}
+            <div style="padding:var(--s-3) var(--s-4);border-bottom:var(--line);">
+              <div class="between">
+                <strong class="small">
+                  <a href="{% url 'tournament_round' tournament.pk round.number %}">Round {{ round.number }}</a>
+                </strong>
+                <span class="tag {% if round.is_complete %}tag-done{% else %}tag-live{% endif %}">
+                  {% if round.is_complete %}Complete{% else %}Playing{% endif %}
+                </span>
+              </div>
+            </div>
+            <table class="grid">
               <tbody>
                 {% for match in round.matches.all %}
                 <tr>
-                  <td class="text-muted">{{ match.board_number|default:"—" }}</td>
-                  <td>{{ match.white_player.user.get_full_name|default:match.white_player.user.username }}</td>
-                  <td class="fw-bold text-center">
-                    {% if match.result == 'white_win' %}1 – 0
-                    {% elif match.result == 'black_win' %}0 – 1
-                    {% elif match.result == 'draw' %}½ – ½
-                    {% else %}<span class="text-muted">—</span>{% endif %}
+                  <td class="num muted" style="width:3rem;">{{ match.board_number|default:"" }}</td>
+                  <td class="small">{{ match.white_player.user.get_full_name|default:match.white_player.user.username }}</td>
+                  <td class="c num nowrap" style="width:6rem;font-weight:700;">
+                    {% if match.result == 'white_win' %}1 - 0
+                    {% elif match.result == 'black_win' %}0 - 1
+                    {% elif match.result == 'draw' %}&frac12; - &frac12;
+                    {% else %}<span class="muted" style="font-weight:400;">pending</span>{% endif %}
                   </td>
-                  <td>{{ match.black_player.user.get_full_name|default:match.black_player.user.username }}</td>
+                  <td class="small">
+                    {% if match.black_player %}
+                      {{ match.black_player.user.get_full_name|default:match.black_player.user.username }}
+                    {% else %}
+                      <span class="muted">bye</span>
+                    {% endif %}
+                  </td>
                 </tr>
                 {% endfor %}
               </tbody>
             </table>
-          </div>
+          {% endfor %}
         </div>
-        {% endfor %}
-      </div>
       {% endif %}
+
     </div>
 
-    <!-- Right: sidebar -->
-    <div class="col-lg-4">
-      <div class="card p-4 mb-4">
-        <h6 class="fw-bold mb-3">Registration</h6>
-        <div class="d-flex justify-content-between mb-2">
-          <span class="text-muted">Fee</span>
-          <strong>{% if tournament.registration_fee > 0 %}{{ tournament.currency }} {{ tournament.registration_fee }}{% else %}Free{% endif %}</strong>
-        </div>
-        <div class="d-flex justify-content-between mb-3">
-          <span class="text-muted">Spots left</span>
-          <strong>{{ tournament.max_players|add:"-"|add:tournament.player_count|default:"—" }}</strong>
-        </div>
+    {# ============================================================= sidebar #}
+    <div class="col-4">
 
-        {% if tournament.status == 'registration_open' %}
-          {% if user.is_authenticated %}
-            {% if already_registered %}
-              {% if tournament.registration_fee > 0 %}
+      <div class="panel" style="margin-bottom:var(--s-5);">
+        <div class="panel-head"><h3>Entry</h3></div>
+        <div class="panel-body">
+
+          <dl class="dl" style="margin-bottom:var(--s-4);">
+            <div>
+              <dt>Fee</dt>
+              <dd class="num">
+                {% if tournament.registration_fee > 0 %}
+                  {{ tournament.currency }} {{ tournament.registration_fee }}
+                {% else %}Free{% endif %}
+              </dd>
+            </div>
+            <div>
+              <dt>Places left</dt>
+              <dd class="num">{{ tournament.spots_left }}</dd>
+            </div>
+            <div>
+              <dt>Rounds</dt>
+              <dd class="num">{{ tournament.num_rounds }}</dd>
+            </div>
+          </dl>
+
+          {% if tournament.status == 'registration_open' %}
+            {% if user.is_authenticated %}
+              {% if already_registered %}
                 {% if my_registration.status == 'confirmed' %}
-                  <button class="btn btn-success w-100" disabled>
-                    <i class="bi bi-check-circle-fill"></i> Confirmed
-                  </button>
-                {% elif my_payment and my_payment.status == 'completed' %}
-                  <button class="btn btn-outline-success w-100" disabled>
-                    <i class="bi bi-clock"></i> Payment Received — Awaiting Confirmation
-                  </button>
-                {% elif my_payment and my_payment.status == 'awaiting_approval' %}
-                  <a href="{% url 'payment_initiate' tournament.pk %}" class="btn btn-warning w-100">
-                    <i class="bi bi-phone"></i> Approve Payment on Phone
-                  </a>
-                {% else %}
-                  <a href="{% url 'payment_initiate' tournament.pk %}" class="btn btn-chess w-100">
-                    <i class="bi bi-credit-card"></i> Pay Registration Fee
-                  </a>
-                {% endif %}
-              {% else %}
-                {% if my_registration.status == 'confirmed' %}
-                  <button class="btn btn-success w-100" disabled>
-                    <i class="bi bi-check-circle-fill"></i> Confirmed
-                  </button>
-                {% else %}
-                  <button class="btn btn-secondary w-100" disabled>
-                    <i class="bi bi-clock"></i> Awaiting Confirmation
-                  </button>
-                {% endif %}
-              {% endif %}
-            {% elif tournament.is_full %}
-              <button class="btn btn-secondary w-100" disabled>Tournament Full</button>
-            {% else %}
-              <form method="post" action="{% url 'tournament_register' tournament.pk %}">
-                {% csrf_token %}
-                <button class="btn btn-chess w-100">
-                  <i class="bi bi-person-plus"></i>
-                  {% if tournament.registration_fee > 0 %}
-                    Register &amp; Pay {{ tournament.currency }} {{ tournament.registration_fee }}
+                  <div class="note note-success" style="margin:0;">
+                    <strong>You are in.</strong> Your place is confirmed.
+                  </div>
+                {% elif tournament.registration_fee > 0 %}
+                  {% if my_payment and my_payment.status == 'completed' %}
+                    <div class="note note-info" style="margin:0;">
+                      <strong>Payment received.</strong> Waiting on the director
+                      to confirm your place.
+                    </div>
+                  {% elif my_payment and my_payment.status == 'awaiting_approval' %}
+                    <a class="btn btn-primary" style="width:100%;"
+                       href="{% url 'payment_initiate' tournament.pk %}">Approve payment on your phone</a>
                   {% else %}
-                    Register Now (Free)
+                    <a class="btn btn-primary" style="width:100%;"
+                       href="{% url 'payment_initiate' tournament.pk %}">Pay the entry fee</a>
                   {% endif %}
-                </button>
-              </form>
+                {% else %}
+                  <div class="note note-info" style="margin:0;">
+                    <strong>Entered.</strong> Waiting on confirmation.
+                  </div>
+                {% endif %}
+              {% elif tournament.is_full %}
+                <div class="note" style="margin:0;"><strong>Full.</strong>
+                  Every place has been taken.</div>
+              {% else %}
+                <form method="post" action="{% url 'tournament_register' tournament.pk %}">
+                  {% csrf_token %}
+                  <button class="btn btn-primary" style="width:100%;">
+                    {% if tournament.registration_fee > 0 %}
+                      Enter and pay {{ tournament.currency }} {{ tournament.registration_fee }}
+                    {% else %}
+                      Enter, free
+                    {% endif %}
+                  </button>
+                </form>
+              {% endif %}
+            {% else %}
+              <a class="btn btn-primary" style="width:100%;"
+                 href="/login/?next=/tournaments/{{ tournament.pk }}/">Log in to enter</a>
             {% endif %}
+          {% elif tournament.status == 'upcoming' %}
+            <div class="note" style="margin:0;">
+              <strong>Entry not open yet.</strong> It opens closer to the date.
+            </div>
           {% else %}
-            <a href="/login/?next=/tournaments/{{ tournament.pk }}/" class="btn btn-chess w-100">
-              Login to Register
-            </a>
+            <div class="note" style="margin:0;">
+              <strong>Entry is closed.</strong> This tournament is under way or finished.
+            </div>
           {% endif %}
-        {% elif tournament.status == 'upcoming' %}
-          <button class="btn btn-outline-secondary w-100" disabled>Registration Not Open Yet</button>
-        {% endif %}
+
+        </div>
       </div>
 
-      {% if tournament.status in 'in_progress,completed' %}
-      <div class="card p-4">
-        <h6 class="fw-bold mb-3">Standings</h6>
-        <table class="table table-sm mb-0">
-          <thead class="table-light">
-            <tr><th>#</th><th>Player</th><th>Rating</th></tr>
-          </thead>
-          <tbody>
-            {% for reg in registrations|slice:":10" %}
-            <tr>
-              <td>{{ forloop.counter }}</td>
-              <td>{{ reg.player.user.get_full_name|default:reg.player.user.username }}</td>
-              <td>{{ reg.player.rating }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+      {% if top_standings %}
+        <div class="panel panel-tight quiet" style="border-color:transparent;margin-bottom:var(--s-5);">
+          <div class="panel-head" style="border-bottom-color:rgba(255,255,255,.12);">
+            <h3 style="color:var(--bch-bone);">Leading</h3>
+            <a href="{% url 'tournament_standings' tournament.pk %}" style="color:var(--bch-ochre);">Full table</a>
+          </div>
+          <table class="grid">
+            <tbody>
+              {% for row in top_standings %}
+              <tr>
+                <td class="num muted" style="width:2.5rem;">{{ row.rank }}</td>
+                <td>{{ row.player.user.get_full_name|default:row.player.user.username }}</td>
+                <td class="r num" style="font-weight:700;">{{ row.score|floatformat:"-1" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       {% endif %}
-    </div>
 
+      <div class="panel">
+        <div class="panel-head"><h3>Take it away</h3></div>
+        <div class="panel-body stack-sm">
+          {% comment %}Three plain links. The old version hid these behind a
+             Bootstrap dropdown, which needed Bootstrap's JavaScript to open at
+             all.{% endcomment %}
+          <div><a href="{% url 'export_print' tournament.pk %}" target="_blank" rel="noopener">Printable report</a></div>
+          <div><a href="{% url 'export_standings' tournament.pk %}">Standings as CSV</a></div>
+          <div><a href="{% url 'export_pairings' tournament.pk %}">Pairings as CSV</a></div>
+          {% if user.is_staff or user.member.role == 'admin' and user.member.association == tournament.association %}
+            <div style="padding-top:var(--s-2);border-top:var(--line);margin-top:var(--s-2);">
+              <a href="{% url 'tournament_manage' tournament.pk %}" style="font-weight:600;">Manage this tournament</a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
   </div>
+
 </div>
 {% endblock %}
