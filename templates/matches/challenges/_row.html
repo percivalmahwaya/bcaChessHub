@@ -1,0 +1,75 @@
+{% comment %}
+  One challenge, in either direction.
+
+  The received and sent lists were two near-identical blocks of markup whose
+  only real difference was which player they name and whether accept and
+  decline appear. Kept apart they drift: the sent list had already lost the
+  unread rule the received list drew.
+
+  Expects:
+      challenge  the Challenge
+      other      the other player, whoever that is from here
+      incoming   True if it was sent TO the viewer, so they can answer it
+{% endcomment %}
+<div style="padding:var(--s-3) var(--s-4);border-bottom:var(--line);
+            {% if challenge.status == 'pending' and incoming %}box-shadow:inset 3px 0 0 var(--bch-terracotta);{% endif %}">
+  <div class="between" style="align-items:flex-start;">
+
+    <div style="min-width:0;flex:1 1 14rem;">
+      <a href="{% url 'player_profile' other.pk %}" style="font-weight:600;">
+        {{ other.user.get_full_name|default:other.user.username }}
+      </a>
+      <span class="tiny muted num">({{ other.rating }})</span>
+      <span class="small muted">
+        {% if incoming %}challenged you{% else %}was challenged by you{% endif %}
+      </span>
+
+      {% if challenge.message %}
+        <div class="small" style="margin-top:var(--s-1);color:var(--bch-granite);
+                    border-left:2px solid var(--bch-sand);padding-left:var(--s-3);">
+          {{ challenge.message }}
+        </div>
+      {% endif %}
+
+      <div class="tiny muted num" style="margin-top:var(--s-1);">
+        {{ challenge.created_at|date:"d M Y, H:i" }}
+      </div>
+    </div>
+
+    <div style="display:flex;gap:var(--s-3);align-items:center;flex-wrap:wrap;">
+      {% if challenge.status == 'pending' %}
+        {% if incoming %}
+          <form method="post" action="{% url 'challenge_respond' challenge.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="accept">
+            <button class="btn btn-primary btn-sm">Accept</button>
+          </form>
+          {% comment %}
+            Declining cannot be undone, so it is a quiet link set apart from
+            Accept rather than a second button beside it, where a thumb aimed
+            at one lands on the other.
+          {% endcomment %}
+          <form method="post" action="{% url 'challenge_respond' challenge.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="decline">
+            <button class="btn btn-quiet btn-sm">Decline</button>
+          </form>
+        {% else %}
+          <span class="tag tag-soon">Waiting</span>
+        {% endif %}
+
+      {% elif challenge.status == 'accepted' %}
+        <span class="tag tag-open">On</span>
+        <a class="btn btn-quiet btn-sm" href="{% url 'challenge_detail' challenge.pk %}">Record the result</a>
+
+      {% elif challenge.status == 'completed' %}
+        <span class="tag tag-done">Played</span>
+        <a class="small" href="{% url 'challenge_detail' challenge.pk %}">See it</a>
+
+      {% elif challenge.status == 'declined' %}
+        <span class="tag tag-quiet">Declined</span>
+      {% endif %}
+    </div>
+
+  </div>
+</div>

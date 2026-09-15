@@ -1,123 +1,67 @@
 {% extends 'base.html' %}
-{% block title %}Challenges — ChessHub{% endblock %}
+
+{% block title %}Challenges{% endblock %}
+
+{% comment %}
+  Two lists that were near-identical copies of each other, received and sent,
+  differing mainly in which player they name. They share a partial now.
+
+  Accept and Decline were a tick and a cross glyph. Decline is destructive and
+  irreversible, so it reads as a word and sits apart from Accept rather than
+  immediately beside it, where a thumb aiming for one lands on the other.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5" style="max-width:760px;">
+<div class="wrap page" style="max-width:48rem;">
 
-  <div class="d-flex align-items-center justify-content-between mb-4">
-    <div>
-      <h4 class="fw-bold mb-0">⚔ Challenges</h4>
-      {% if pending_count %}
-        <p class="text-muted small mb-0">
-          <span class="badge rounded-pill" style="background:var(--chess-accent);">{{ pending_count }}</span>
-          pending response{{ pending_count|pluralize }}
-        </p>
-      {% else %}
-        <p class="text-muted small mb-0">No pending responses</p>
-      {% endif %}
+  <h1 class="page-title">Challenges</h1>
+  <p class="page-sub">
+    {% if pending_count %}
+      <span class="num">{{ pending_count }}</span> waiting for your answer.
+    {% else %}
+      Nothing waiting on you.
+    {% endif %}
+  </p>
+
+  {# ---------------------------------------------------------- received #}
+  <div class="panel panel-tight" style="margin-bottom:var(--s-6);">
+    <div class="panel-head">
+      <h3>Sent to you</h3>
+      <span class="tiny muted num">{{ received.count }}</span>
     </div>
-    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm">← Dashboard</a>
-  </div>
-
-
-  <!-- ── Inbox ──────────────────────────────────────────── -->
-  <h6 class="fw-bold mb-2 text-muted text-uppercase" style="font-size:0.78rem;letter-spacing:0.5px;">
-    Received ({{ received.count }})
-  </h6>
-  {% if received %}
-  <div class="d-flex flex-column gap-2 mb-4">
-    {% for c in received %}
-    <div class="card px-4 py-3 {% if c.status == 'pending' %}border-start border-3{% endif %}"
-         style="{% if c.status == 'pending' %}border-left-color:var(--chess-accent) !important;{% endif %}">
-      <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
-        <div>
-          <span class="fw-semibold">
-            <a href="{% url 'player_profile' c.challenger.pk %}" class="text-decoration-none">
-              {{ c.challenger.user.get_full_name|default:c.challenger.user.username }}
-            </a>
-          </span>
-          <span class="text-muted small ms-2">challenged you</span>
-          {% if c.message %}
-            <div class="text-muted small mt-1 fst-italic">"{{ c.message }}"</div>
-          {% endif %}
-          <div class="text-muted mt-1" style="font-size:0.75rem;">
-            {{ c.created_at|date:"d M Y, H:i" }}
-            &middot; ELO {{ c.challenger.rating }}
-          </div>
-        </div>
-
-        <div class="d-flex gap-2 align-items-center flex-wrap">
-          {% if c.status == 'pending' %}
-            <form method="post" action="{% url 'challenge_respond' c.pk %}">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="accept">
-              <button class="btn btn-chess btn-sm">✓ Accept</button>
-            </form>
-            <form method="post" action="{% url 'challenge_respond' c.pk %}">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="decline">
-              <button class="btn btn-outline-danger btn-sm">✗ Decline</button>
-            </form>
-          {% elif c.status == 'accepted' %}
-            <span class="badge bg-success">Accepted</span>
-            <a href="{% url 'challenge_detail' c.pk %}" class="btn btn-outline-secondary btn-sm">Record result</a>
-          {% elif c.status == 'completed' %}
-            <span class="badge bg-secondary">Completed</span>
-            <a href="{% url 'challenge_detail' c.pk %}" class="btn btn-outline-secondary btn-sm" style="font-size:0.78rem;">View</a>
-          {% elif c.status == 'declined' %}
-            <span class="badge bg-light text-dark border">Declined</span>
-          {% endif %}
-        </div>
+    {% if received %}
+      {% for c in received %}
+        {% include 'matches/challenges/_row.html' with challenge=c other=c.challenger incoming=True %}
+      {% endfor %}
+    {% else %}
+      <div class="empty">
+        <strong>Nobody has challenged you</strong>
+        A challenge is a rated game outside a tournament. Other players can
+        send you one from your profile.
       </div>
-    </div>
-    {% endfor %}
+    {% endif %}
   </div>
-  {% else %}
-  <div class="text-muted small mb-4">No challenges received yet.</div>
-  {% endif %}
 
-  <!-- ── Sent ───────────────────────────────────────────── -->
-  <h6 class="fw-bold mb-2 text-muted text-uppercase" style="font-size:0.78rem;letter-spacing:0.5px;">
-    Sent ({{ sent.count }})
-  </h6>
-  {% if sent %}
-  <div class="d-flex flex-column gap-2">
-    {% for c in sent %}
-    <div class="card px-4 py-3">
-      <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
-        <div>
-          <span class="fw-semibold">
-            <a href="{% url 'player_profile' c.opponent.pk %}" class="text-decoration-none">
-              {{ c.opponent.user.get_full_name|default:c.opponent.user.username }}
-            </a>
-          </span>
-          <span class="text-muted small ms-2">ELO {{ c.opponent.rating }}</span>
-          {% if c.message %}
-            <div class="text-muted small mt-1 fst-italic">"{{ c.message }}"</div>
-          {% endif %}
-          <div class="text-muted mt-1" style="font-size:0.75rem;">Sent {{ c.created_at|date:"d M Y, H:i" }}</div>
-        </div>
-
-        <div class="d-flex gap-2 align-items-center">
-          {% if c.status == 'pending' %}
-            <span class="badge bg-warning text-dark">Awaiting response</span>
-          {% elif c.status == 'accepted' %}
-            <span class="badge bg-success">Accepted</span>
-            <a href="{% url 'challenge_detail' c.pk %}" class="btn btn-outline-secondary btn-sm">Record result</a>
-          {% elif c.status == 'completed' %}
-            <span class="badge bg-secondary">Completed</span>
-            <a href="{% url 'challenge_detail' c.pk %}" class="btn btn-outline-secondary btn-sm" style="font-size:0.78rem;">View</a>
-          {% elif c.status == 'declined' %}
-            <span class="badge bg-light text-dark border">Declined</span>
-          {% endif %}
-        </div>
+  {# -------------------------------------------------------------- sent #}
+  <div class="panel panel-tight">
+    <div class="panel-head">
+      <h3>Sent by you</h3>
+      <span class="tiny muted num">{{ sent.count }}</span>
+    </div>
+    {% if sent %}
+      {% for c in sent %}
+        {% include 'matches/challenges/_row.html' with challenge=c other=c.opponent incoming=False %}
+      {% endfor %}
+    {% else %}
+      <div class="empty">
+        <strong>You have not challenged anyone</strong>
+        Open a player from the <a href="{% url 'rankings' %}">ratings</a> and
+        send one. The result is rated, exactly like a tournament game.
       </div>
-    </div>
-    {% endfor %}
+    {% endif %}
   </div>
-  {% else %}
-  <div class="text-muted small">No challenges sent yet. Visit a player's profile to send one.</div>
-  {% endif %}
 
 </div>
 {% endblock %}
