@@ -48,6 +48,24 @@
 </header>
 <div class="board-rule"></div>
 
+{% comment %}
+  Django messages. Nothing in this project rendered them until 2026-09-15.
+  There were 85 messages.success and messages.error calls across the views and
+  not one template displayed any of them, so every validation error and every
+  confirmation was written to the session and thrown away. A user clicked and
+  the page said nothing at all.
+
+  Rendered here once, so it covers every page including those still on
+  Bootstrap, and so no future template can forget it.
+{% endcomment %}
+{% if messages %}
+<div class="wrap notes" role="status" aria-live="polite">
+  {% for message in messages %}
+    <div class="note note-{{ message.tags|default:'info' }}">{{ message }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% block content %}{% endblock %}
 
 <footer class="foot">

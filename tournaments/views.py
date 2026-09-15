@@ -148,12 +148,34 @@ def tournament_round(request, pk, round_number):
         .order_by('board_number')
     )
     rounds = tournament.rounds.order_by('number')
+    viewer = (request.user.member
+              if request.user.is_authenticated and hasattr(request.user, 'member')
+              else None)
+
+    # Annotated here rather than worked out in the template.
+    #
+    # round.html used to do this with
+    #     {% with is_viewer_white=viewer_member and viewer_member == match.white_player %}
+    # and Django's `with` tag accepts no boolean operators and no comparisons,
+    # only plain values and filters. The tag failed to parse, which left its
+    # `{% endwith %}` as an unknown block tag, which raised TemplateSyntaxError
+    # at render time, which meant EVERY round pairings page on this site
+    # returned a hard 500. That is the page a player opens on a Saturday to
+    # find out which board they are on.
+    #
+    # Nothing caught it because nothing ever rendered this template: no test
+    # covered it, and the URL is /rounds/<n>/ rather than /round/<n>/, so a
+    # casual check got a 404 and looked merely missing rather than broken.
+    for match in matches:
+        match.viewer_is_white = viewer is not None and viewer == match.white_player
+        match.viewer_is_black = viewer is not None and viewer == match.black_player
+
     return render(request, 'tournaments/round.html', {
         'tournament': tournament,
         'round': round_obj,
         'matches': matches,
         'rounds': rounds,
-        'viewer_member': request.user.member if request.user.is_authenticated and hasattr(request.user, 'member') else None,
+        'viewer_member': viewer,
     })
 
 

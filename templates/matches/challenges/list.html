@@ -19,11 +19,6 @@
     <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm">← Dashboard</a>
   </div>
 
-  {% for msg in messages %}
-  <div class="alert alert-{{ msg.tags }} alert-dismissible fade show py-2 mb-3" role="alert">
-    {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-  </div>
-  {% endfor %}
 
   <!-- ── Inbox ──────────────────────────────────────────── -->
   <h6 class="fw-bold mb-2 text-muted text-uppercase" style="font-size:0.78rem;letter-spacing:0.5px;">

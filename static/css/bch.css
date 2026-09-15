@@ -318,3 +318,136 @@ table.grid td.r, table.grid th.r { text-align: right; }
   table.grid th, table.grid td { padding: var(--s-2) var(--s-3); }
   .hide-phone { display: none; }
 }
+
+/* ==========================================================================
+   FORMS, MESSAGES, PAGINATION
+   ==========================================================================
+   Added 2026-09-15, when the rest of the site was migrated off Bootstrap.
+   The home page needed none of these, so the first version of this file had
+   none of them, and every other page in the site needs all three.
+   ========================================================================== */
+
+/* ------------------------------------------------------------- form parts */
+
+.field { margin-bottom: var(--s-4); }
+.field > label,
+label.lbl {
+  display: block; margin-bottom: var(--s-1);
+  font-size: var(--t-xs); font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--bch-stone);
+}
+
+input[type=text], input[type=email], input[type=password], input[type=number],
+input[type=date], input[type=time], input[type=url], input[type=search],
+input[type=tel], input[type=datetime-local], select, textarea {
+  width: 100%; font: inherit; font-size: var(--t-sm);
+  color: var(--bch-ink); background: var(--bch-white);
+  border: 1px solid var(--bch-clay); border-radius: var(--r);
+  padding: var(--s-2) var(--s-3);
+  /* 16px on phones or iOS Safari zooms the whole page on focus, which on a
+     form this narrow throws the layout sideways. */
+  min-height: 38px;
+}
+@media (max-width: 720px) {
+  input, select, textarea { font-size: 16px; }
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: var(--bch-terracotta);
+  box-shadow: 0 0 0 3px rgba(184, 92, 56, .16);
+}
+input[disabled], select[disabled], textarea[disabled] {
+  background: var(--bch-bone); color: var(--bch-stone); cursor: not-allowed;
+}
+textarea { min-height: 7rem; resize: vertical; }
+select {
+  /* The native arrow is drawn by the OS and cannot be styled, so leave room
+     for it rather than letting it sit on top of a long association name. */
+  padding-right: var(--s-6);
+}
+
+.inline-form { display: flex; flex-wrap: wrap; gap: var(--s-3); align-items: flex-end; }
+.inline-form .field { margin-bottom: 0; flex: 1 1 12rem; }
+.inline-form .field.narrow { flex: 0 1 8rem; }
+
+.help { display: block; margin-top: var(--s-1); font-size: var(--t-xs); color: var(--bch-stone); }
+.errorlist {
+  list-style: none; margin: var(--s-1) 0 0; padding: 0;
+  font-size: var(--t-xs); color: var(--bch-loss); font-weight: 600;
+}
+.check { display: flex; align-items: flex-start; gap: var(--s-2); font-size: var(--t-sm); }
+.check input { width: auto; min-height: 0; margin-top: .2rem; }
+
+/* --------------------------------------------------------------- messages */
+
+/* Until 2026-09-15 nothing in this project rendered Django messages. There
+   were 85 messages.success/error calls across the views and not one template
+   displayed any of them, so every "Invalid Lichess URL", every "Only
+   tournament directors can do that", every "Your message has been sent" was
+   written to the session and thrown away. The user clicked and the page said
+   nothing at all.
+
+   Colour carries meaning here and nowhere else on the site, which is the only
+   reason it is allowed to: an error is the one moment a reader must not miss. */
+.notes { margin: var(--s-4) 0; }
+.note {
+  border-left: 3px solid var(--bch-stone);
+  background: var(--bch-bone);
+  padding: var(--s-3) var(--s-4);
+  font-size: var(--t-sm); line-height: 1.55;
+  margin-bottom: var(--s-2);
+}
+.note:last-child { margin-bottom: 0; }
+.note-success { border-left-color: var(--bch-win); }
+.note-error,
+.note-danger { border-left-color: var(--bch-loss); }
+.note-warning { border-left-color: var(--bch-ochre); }
+.note-info { border-left-color: var(--bch-granite); }
+.note strong { color: var(--bch-ink); }
+
+/* ------------------------------------------------------------- pagination */
+
+.pager {
+  display: flex; flex-wrap: wrap; gap: var(--s-3);
+  align-items: center; justify-content: space-between;
+  margin-top: var(--s-5); font-size: var(--t-sm);
+}
+.pager ul { display: flex; gap: var(--s-1); list-style: none; margin: 0; padding: 0; }
+.pager a, .pager span.pg {
+  display: inline-block; min-width: 2rem; text-align: center;
+  padding: var(--s-1) var(--s-2); border: var(--line); border-radius: var(--r);
+  font-size: var(--t-sm); color: var(--bch-granite); background: var(--bch-white);
+}
+.pager a:hover { background: var(--bch-bone); text-decoration: none; }
+.pager .on {
+  background: var(--bch-terracotta); border-color: var(--bch-terracotta);
+  color: var(--bch-white); font-weight: 700;
+}
+.pager .off { color: var(--bch-mist); background: var(--bch-bone); }
+
+/* ------------------------------------------------------------- utilities */
+
+.stack-sm > * + * { margin-top: var(--s-2); }
+.stack-md > * + * { margin-top: var(--s-4); }
+.between { display: flex; flex-wrap: wrap; gap: var(--s-3);
+           align-items: center; justify-content: space-between; }
+.page { padding-block: var(--s-6); }
+.page-title { font-size: var(--t-2xl); margin: 0 0 var(--s-1); }
+.page-sub { color: var(--bch-stone); font-size: var(--t-sm); margin: 0 0 var(--s-5); }
+.r { text-align: right; }
+.c { text-align: center; }
+.nowrap { white-space: nowrap; }
+.avatar {
+  width: 44px; height: 44px; border-radius: 50%; object-fit: cover;
+  background: var(--bch-sand);
+}
+.avatar-lg { width: 96px; height: 96px; }
+
+/* A definition row, for profile and detail pages: label above, value below. */
+.dl { display: flex; flex-wrap: wrap; gap: var(--s-5) var(--s-6); }
+.dl > div { min-width: 8rem; }
+.dl dt {
+  font-size: var(--t-xs); text-transform: uppercase; letter-spacing: .06em;
+  color: var(--bch-stone); font-weight: 700; margin-bottom: 2px;
+}
+.dl dd { margin: 0; font-size: var(--t-base); color: var(--bch-ink); }

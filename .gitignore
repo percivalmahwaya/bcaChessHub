@@ -8,3 +8,7 @@ db.sqlite3
 media/
 staticfiles/
 venv/
+
+# weigh.py working files
+.weigh-cache.json
+.weigh-*.json
