@@ -191,7 +191,6 @@ class HouseRules(TestCase):
         "members/admin_stats.html",
         "members/edit_profile.html",
         "members/manage.html",
-        "members/profile.html",
         "payments/pay.html",
         "payments/return.html",
         "payments/sandbox_checkout.html",

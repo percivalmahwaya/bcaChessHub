@@ -1,290 +1,254 @@
 {% extends 'base.html' %}
-{% block title %}{{ member.user.get_full_name }} — ChessHub{% endblock %}
 
-{% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-{% endblock %}
+{% block title %}{{ member.user.get_full_name|default:member.user.username }}{% endblock %}
+{% block description %}{{ member.user.get_full_name|default:member.user.username }}, rated {{ member.rating }}, {{ member.association.name }}.{% endblock %}
+
+{% comment %}
+  A player's public page, linked from every rating on the site.
+
+  IT USED TO PULL CHART.JS FROM A CDN: roughly 200 KB of JavaScript to draw
+  one line through a handful of points, on a page whose whole audience is on a
+  metered bundle. The rating history is now inline SVG, computed in the view by
+  rating_sparkline(). No library, no script tag, no extra request, and it
+  scales to the actual range rather than to zero, so the movement it exists to
+  show is actually visible.
+
+  The challenge form was a Bootstrap collapse, which needs Bootstrap's
+  JavaScript to open. It is a <details> element now: same behaviour, built into
+  every browser, zero bytes.
+
+  Recent games carried two copies of every row, one per colour. Annotated in
+  the view instead.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="wrap page">
 
-  <!-- ── Header ────────────────────────────────────────────────────── -->
-  <div class="card p-4 mb-4">
-    <div class="d-flex align-items-center gap-4 flex-wrap">
+  {# ------------------------------------------------------------- header #}
+  <div class="panel" style="margin-bottom:var(--s-5);">
+    <div class="panel-body">
+      <div style="display:flex;gap:var(--s-5);align-items:flex-start;flex-wrap:wrap;">
 
-      <!-- Avatar -->
-      {% if member.profile_photo %}
-        <img src="{{ member.profile_photo.url }}" class="rounded-circle flex-shrink-0"
-             width="80" height="80" style="object-fit:cover;border:3px solid var(--chess-accent);">
-      {% else %}
-        <div style="width:80px;height:80px;border-radius:50%;background:var(--chess-accent);
-                    display:flex;align-items:center;justify-content:center;
-                    font-size:2rem;color:white;font-weight:700;flex-shrink:0;">
-          {{ member.user.first_name|first|upper }}{{ member.user.last_name|first|upper }}
+        {% if member.profile_photo %}
+          <img class="avatar avatar-lg" src="{{ member.profile_photo.url }}"
+               alt="{{ member.user.get_full_name|default:member.user.username }}">
+        {% else %}
+          <div class="avatar avatar-lg" style="display:flex;align-items:center;
+               justify-content:center;background:var(--bch-ink);color:var(--bch-ochre);
+               font-size:var(--t-2xl);font-weight:700;">
+            {{ member.user.first_name|first|upper }}{{ member.user.last_name|first|upper|default:"" }}
+          </div>
+        {% endif %}
+
+        <div style="flex:1 1 16rem;min-width:0;">
+          <h1 style="font-size:var(--t-2xl);margin:0;">
+            {{ member.user.get_full_name|default:member.user.username }}
+            {% if is_own_profile %}<span class="tag tag-quiet" style="vertical-align:middle;">You</span>{% endif %}
+          </h1>
+          <p class="small muted" style="margin:var(--s-1) 0 0;">
+            {{ member.get_role_display }} &middot; {{ member.association.name }}
+            &middot; joined {{ member.joined_at|date:"M Y" }}
+            {% if member.coach %}
+              &middot; coached by
+              <a href="{% url 'player_profile' member.coach.pk %}">{{ member.coach.user.get_full_name|default:member.coach.user.username }}</a>
+            {% endif %}
+          </p>
+          <p style="margin:var(--s-3) 0 0;">
+            <span class="num" style="font-size:var(--t-2xl);font-weight:700;color:var(--bch-terracotta);">{{ member.rating }}</span>
+            <span class="tiny muted" style="letter-spacing:.08em;text-transform:uppercase;">ELO</span>
+          </p>
         </div>
-      {% endif %}
 
-      <div class="flex-grow-1">
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-          <h3 class="fw-bold mb-0">{{ member.user.get_full_name }}</h3>
+        <div>
           {% if is_own_profile %}
-            <span class="badge bg-secondary">You</span>
+            <a class="btn btn-quiet btn-sm" href="{% url 'dashboard' %}">Your dashboard</a>
+          {% elif user.is_authenticated and user.member %}
+            {% comment %}
+              A <details> element, not a Bootstrap collapse. Same disclosure
+              behaviour, native to the browser, no JavaScript at all.
+            {% endcomment %}
+            <details>
+              <summary class="btn btn-primary btn-sm" style="list-style:none;cursor:pointer;">
+                Challenge this player
+              </summary>
+              <form method="post" action="{% url 'challenge_send' member.pk %}"
+                    style="min-width:17rem;margin-top:var(--s-3);">
+                {% csrf_token %}
+                <div class="field">
+                  <label class="lbl" for="id_challenge_message">Message, optional</label>
+                  <textarea name="message" id="id_challenge_message" rows="2" maxlength="300"
+                            placeholder="When are you free?"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm" style="width:100%;">Send</button>
+              </form>
+            </details>
           {% endif %}
         </div>
-        <div class="text-muted small mt-1">
-          {{ member.get_role_display }} &middot; {{ member.association.name }}
-          &middot; Joined {{ member.joined_at|date:"M Y" }}
-          {% if member.coach %}
-            &middot; Coach:
-            <a href="{% url 'player_profile' member.coach.pk %}" class="text-decoration-none">
-              {{ member.coach.user.get_full_name|default:member.coach.user.username }}
-            </a>
-          {% endif %}
-        </div>
-        <div class="mt-2">
-          <span style="font-size:1.6rem;font-weight:800;color:var(--chess-accent);">
-            {{ member.rating }}
-          </span>
-          <span class="text-muted small ms-1">ELO</span>
-          {% if member.rank %}
-            <span class="badge bg-light text-dark border ms-2">{{ member.rank }}</span>
-          {% endif %}
-        </div>
-      </div>
 
-      {% if is_own_profile %}
-      <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm">
-        My Dashboard
-      </a>
-      {% elif user.is_authenticated and user.member %}
-      <div>
-        <button class="btn btn-chess btn-sm" data-bs-toggle="collapse" data-bs-target="#challengeForm">
-          ⚔ Challenge
-        </button>
-        <div class="collapse mt-2" id="challengeForm">
-          <form method="post" action="{% url 'challenge_send' member.pk %}" style="min-width:280px;">
-            {% csrf_token %}
-            <textarea name="message" class="form-control form-control-sm mb-2" rows="2"
-                      placeholder="Optional message to your opponent…" maxlength="300"></textarea>
-            <button type="submit" class="btn btn-chess btn-sm w-100">Send Challenge</button>
-          </form>
-        </div>
       </div>
-      {% endif %}
     </div>
   </div>
 
-  <div class="row g-4">
-    <div class="col-lg-8">
+  <div class="row">
+    <div class="col-8">
 
-      <!-- ── ELO chart ─────────────────────────────────────────────── -->
-      <div class="card p-4 mb-4">
-        <h6 class="fw-bold mb-3">ELO Rating History</h6>
-        {% if chart_data != "[]" and chart_data != "[1200]" %}
-          <canvas id="eloChart" height="120"></canvas>
-        {% else %}
-          <p class="text-muted small mb-0">
-            No rated games yet — ELO history will appear here after the first match.
-          </p>
-        {% endif %}
+      {# ------------------------------------------------------ rating line #}
+      <div class="panel" style="margin-bottom:var(--s-5);">
+        <div class="panel-head">
+          <h3>Rating history</h3>
+          {% if rating_chart %}
+            <span class="tiny muted num">{{ rating_chart.low }} to {{ rating_chart.high }}</span>
+          {% endif %}
+        </div>
+        <div class="panel-body">
+          {% if rating_chart %}
+            <svg viewBox="0 0 {{ rating_chart.width }} {{ rating_chart.height }}"
+                 width="100%" height="{{ rating_chart.height }}"
+                 role="img" preserveAspectRatio="none"
+                 aria-label="Rating from {{ rating_chart.low }} to {{ rating_chart.high }}, currently {{ rating_chart.current }}">
+              <polygon points="{{ rating_chart.area }}" fill="rgba(184,92,56,.10)"></polygon>
+              <polyline points="{{ rating_chart.line }}" fill="none"
+                        stroke="var(--bch-terracotta)" stroke-width="2"
+                        stroke-linejoin="round" stroke-linecap="round"></polyline>
+              <circle cx="{{ rating_chart.last.0 }}" cy="{{ rating_chart.last.1 }}" r="4"
+                      fill="var(--bch-terracotta)"></circle>
+            </svg>
+            <div class="tiny muted" style="display:flex;justify-content:space-between;">
+              <span>{{ rating_chart.first_label }}</span>
+              <span>{{ rating_chart.last_label }}</span>
+            </div>
+          {% else %}
+            <p class="small muted" style="margin:0;">
+              No rated games yet. A line appears here after the first result.
+            </p>
+          {% endif %}
+        </div>
       </div>
 
-      <!-- ── Recent games ──────────────────────────────────────────── -->
-      <div class="card p-4 mb-4">
-        <h6 class="fw-bold mb-3">Recent Games</h6>
+      {# ------------------------------------------------------ recent games #}
+      <div class="panel panel-tight">
+        <div class="panel-head"><h3>Recent games</h3></div>
         {% if recent_matches %}
-        <div class="table-responsive">
-          <table class="table table-hover table-sm align-middle mb-0">
+          <table class="grid">
             <thead>
               <tr>
                 <th>Opponent</th>
-                <th class="text-center">Colour</th>
-                <th class="text-center">Result</th>
-                <th class="d-none d-md-table-cell">Tournament</th>
-                <th class="d-none d-md-table-cell text-center">Round</th>
-                <th style="width:2.5rem;"></th>
+                <th>Colour</th>
+                <th class="r">Result</th>
+                <th class="hide-phone">Tournament</th>
+                <th class="r hide-phone">Rd</th>
               </tr>
             </thead>
             <tbody>
               {% for match in recent_matches %}
-              {% if match.white_player == member %}
-                {% with opp=match.black_player colour="White" %}
-                <tr>
-                  <td>
-                    {% if opp %}
-                      <a href="{% url 'player_profile' opp.pk %}" class="text-decoration-none fw-semibold">
-                        {{ opp.user.get_full_name|default:opp.user.username }}
-                      </a>
-                      <span class="text-muted small">({{ opp.rating }})</span>
-                    {% else %}
-                      <span class="text-muted">Bye</span>
-                    {% endif %}
-                  </td>
-                  <td class="text-center"><span class="badge bg-light text-dark border">♔ White</span></td>
-                  <td class="text-center">
-                    {% if match.result == 'white_win' %}<span class="badge bg-success">Win</span>
-                    {% elif match.result == 'black_win' %}<span class="badge bg-danger">Loss</span>
-                    {% elif match.result == 'draw' %}<span class="badge bg-secondary">Draw</span>
-                    {% elif match.result == 'white_win' and opp is None %}<span class="badge bg-info">Bye</span>
-                    {% else %}<span class="badge bg-secondary">{{ match.get_result_display }}</span>{% endif %}
-                  </td>
-                  <td class="d-none d-md-table-cell small text-muted">{{ match.tournament.name }}</td>
-                  <td class="d-none d-md-table-cell text-center small text-muted">R{{ match.round.number }}</td>
-                  <td class="text-center">
-                    {% if match.pgn or match.lichess_game_id %}
-                      <a href="{% url 'match_detail' match.pk %}" class="text-decoration-none" title="View game">♟</a>
-                    {% endif %}
-                  </td>
-                </tr>
-                {% endwith %}
-              {% else %}
-                {% with opp=match.white_player %}
-                <tr>
-                  <td>
-                    <a href="{% url 'player_profile' opp.pk %}" class="text-decoration-none fw-semibold">
-                      {{ opp.user.get_full_name|default:opp.user.username }}
+              <tr>
+                <td>
+                  {% if match.opponent %}
+                    <a href="{% url 'player_profile' match.opponent.pk %}" style="font-weight:600;">
+                      {{ match.opponent.user.get_full_name|default:match.opponent.user.username }}
                     </a>
-                    <span class="text-muted small">({{ opp.rating }})</span>
-                  </td>
-                  <td class="text-center"><span class="badge bg-dark text-light">♚ Black</span></td>
-                  <td class="text-center">
-                    {% if match.result == 'black_win' %}<span class="badge bg-success">Win</span>
-                    {% elif match.result == 'white_win' %}<span class="badge bg-danger">Loss</span>
-                    {% elif match.result == 'draw' %}<span class="badge bg-secondary">Draw</span>
-                    {% else %}<span class="badge bg-secondary">{{ match.get_result_display }}</span>{% endif %}
-                  </td>
-                  <td class="d-none d-md-table-cell small text-muted">{{ match.tournament.name }}</td>
-                  <td class="d-none d-md-table-cell text-center small text-muted">R{{ match.round.number }}</td>
-                  <td class="text-center">
-                    {% if match.pgn or match.lichess_game_id %}
-                      <a href="{% url 'match_detail' match.pk %}" class="text-decoration-none" title="View game">♟</a>
-                    {% endif %}
-                  </td>
-                </tr>
-                {% endwith %}
-              {% endif %}
+                    <span class="tiny muted num">({{ match.opponent.rating }})</span>
+                  {% else %}
+                    <span class="muted">bye</span>
+                  {% endif %}
+                  <div class="tiny muted show-phone">
+                    {{ match.tournament.name }}, round {{ match.round.number }}
+                  </div>
+                  {% if match.pgn or match.lichess_game_id %}
+                    <div class="tiny"><a href="{% url 'match_detail' match.pk %}">Replay</a></div>
+                  {% endif %}
+                </td>
+                <td class="small">{{ match.colour }}</td>
+                <td class="r">
+                  <span class="tag {% if match.outcome == 'Win' %}tag-open{% elif match.outcome == 'Loss' %}tag-live{% else %}tag-quiet{% endif %}">
+                    {{ match.outcome }}
+                  </span>
+                </td>
+                <td class="hide-phone small muted">{{ match.tournament.name }}</td>
+                <td class="r hide-phone num muted">{{ match.round.number }}</td>
+              </tr>
               {% endfor %}
             </tbody>
           </table>
-        </div>
         {% else %}
-          <p class="text-muted small mb-0">No games recorded yet.</p>
+          <div class="empty">
+            <strong>No games recorded</strong>
+            Games appear here once this player has a result in a tournament or
+            an accepted challenge.
+          </div>
         {% endif %}
       </div>
 
     </div>
 
-    <!-- ── Right sidebar ─────────────────────────────────────────── -->
-    <div class="col-lg-4">
+    {# ------------------------------------------------------------ sidebar #}
+    <div class="col-4">
 
-      <!-- Stats -->
-      <div class="card p-4 mb-4">
-        <h6 class="fw-bold mb-3">Career Stats</h6>
-        <div class="row g-2 text-center mb-3">
-          <div class="col-4">
-            <div style="font-size:1.5rem;font-weight:800;color:#198754;">{{ wins }}</div>
-            <div class="text-muted small">Wins</div>
+      <div class="panel" style="margin-bottom:var(--s-5);">
+        <div class="panel-head"><h3>Career</h3></div>
+        <div class="panel-body">
+          <div class="dl" style="margin-bottom:var(--s-4);">
+            <div><dt>Won</dt><dd class="num" style="color:var(--bch-win);font-weight:700;">{{ wins }}</dd></div>
+            <div><dt>Drawn</dt><dd class="num" style="font-weight:700;">{{ draws }}</dd></div>
+            <div><dt>Lost</dt><dd class="num" style="color:var(--bch-loss);font-weight:700;">{{ losses }}</dd></div>
           </div>
-          <div class="col-4">
-            <div style="font-size:1.5rem;font-weight:800;color:#6c757d;">{{ draws }}</div>
-            <div class="text-muted small">Draws</div>
-          </div>
-          <div class="col-4">
-            <div style="font-size:1.5rem;font-weight:800;color:#dc3545;">{{ losses }}</div>
-            <div class="text-muted small">Losses</div>
-          </div>
+          {% if games > 0 %}
+            <div class="tiny muted" style="display:flex;justify-content:space-between;margin-bottom:var(--s-1);">
+              <span>Win rate</span><span class="num">{{ win_pct }}%</span>
+            </div>
+            <div style="height:8px;border-radius:2px;background:var(--bch-sand);overflow:hidden;">
+              <div style="width:{{ win_pct }}%;height:100%;background:var(--bch-win);"></div>
+            </div>
+            <p class="tiny muted" style="margin:var(--s-2) 0 0;">
+              <span class="num">{{ games }}</span> game{{ games|pluralize }} played
+            </p>
+          {% else %}
+            <p class="small muted" style="margin:0;">No games played yet.</p>
+          {% endif %}
         </div>
-
-        {% if games > 0 %}
-        <div class="mb-2">
-          <div class="d-flex justify-content-between small mb-1">
-            <span>Win rate</span><span class="fw-semibold">{{ win_pct }}%</span>
-          </div>
-          <div class="progress" style="height:8px;border-radius:4px;">
-            <div class="progress-bar bg-success" style="width:{{ win_pct }}%;"></div>
-          </div>
-        </div>
-        <div class="text-muted small text-center mt-2">{{ games }} game{{ games|pluralize }} played</div>
-        {% else %}
-          <p class="text-muted small text-center mb-0">No games played yet.</p>
-        {% endif %}
       </div>
 
-      <!-- Tournament history -->
-      <div class="card p-4">
-        <h6 class="fw-bold mb-3">Tournaments</h6>
+      <div class="panel panel-tight">
+        <div class="panel-head"><h3>Tournaments</h3></div>
         {% if tournament_rows %}
-          {% for row in tournament_rows %}
-          <div class="d-flex justify-content-between align-items-start py-2 border-bottom">
-            <div>
-              <a href="{% url 'tournament_detail' row.tournament.pk %}" class="text-decoration-none fw-semibold small">
-                {{ row.tournament.name }}
-              </a>
-              <div class="text-muted" style="font-size:.75rem;">
-                {{ row.tournament.start_date|date:"M Y" }}
-              </div>
-            </div>
-            <div class="text-end">
-              {% if row.rank %}
-                <div class="fw-bold small">
-                  {% if row.rank == 1 %}🥇
-                  {% elif row.rank == 2 %}🥈
-                  {% elif row.rank == 3 %}🥉
-                  {% else %}#{{ row.rank }}{% endif %}
-                  / {{ row.total }}
-                </div>
-                <div class="text-muted" style="font-size:.75rem;">{{ row.score }} pts</div>
-              {% elif row.status == 'confirmed' %}
-                <span class="badge bg-success">Registered</span>
-              {% elif row.status == 'pending' %}
-                <span class="badge bg-warning text-dark">Pending</span>
-              {% endif %}
-            </div>
-          </div>
-          {% endfor %}
+          <table class="grid">
+            <tbody>
+              {% for row in tournament_rows %}
+              <tr>
+                <td>
+                  <a href="{% url 'tournament_detail' row.tournament.pk %}" style="font-weight:600;">
+                    {{ row.tournament.name }}
+                  </a>
+                  <div class="tiny muted">{{ row.tournament.start_date|date:"M Y" }}</div>
+                </td>
+                <td class="r">
+                  {% if row.rank %}
+                    <div class="num" style="font-weight:700;{% if row.rank <= 3 %}color:var(--bch-ochre);{% endif %}">
+                      {{ row.rank }} of {{ row.total }}
+                    </div>
+                    <div class="tiny muted num">{{ row.score }} pts</div>
+                  {% elif row.status == 'confirmed' %}
+                    <span class="tag tag-open">Entered</span>
+                  {% elif row.status == 'pending' %}
+                    <span class="tag tag-soon">Pending</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         {% else %}
-          <p class="text-muted small mb-0">No tournament registrations yet.</p>
+          <div class="empty">
+            <strong>No tournaments yet</strong>
+            Entries and finishing positions appear here.
+          </div>
         {% endif %}
       </div>
 
     </div>
   </div>
+
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-const labels = {{ chart_labels|safe }};
-const data   = {{ chart_data|safe }};
-
-if (labels.length > 1) {
-  const ctx = document.getElementById('eloChart');
-  if (ctx) {
-    new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          label: 'ELO Rating',
-          data,
-          borderColor: '#e94560',
-          backgroundColor: 'rgba(233,69,96,0.08)',
-          tension: 0.3,
-          fill: true,
-          pointRadius: 4,
-          pointBackgroundColor: '#e94560',
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-          y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.05)' } },
-          x: { ticks: { maxTicksLimit: 8, maxRotation: 30 } }
-        }
-      }
-    });
-  }
-}
-</script>
 {% endblock %}

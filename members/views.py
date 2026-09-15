@@ -336,16 +336,75 @@ def player_profile(request, pk):
         chart_labels = ['Start (1200)'] + chart_labels
         chart_data   = [1200] + chart_data
 
+    # Annotate each game from this player's point of view, so the template
+    # does not carry two near-identical copies of the row, one per colour.
+    for m in recent_matches:
+        playing_white = m.white_player_id == member.pk
+        m.colour = 'White' if playing_white else 'Black'
+        m.opponent = m.black_player if playing_white else m.white_player
+        won = m.result in (('white_win', 'black_forfeit') if playing_white
+                           else ('black_win', 'white_forfeit'))
+        lost = m.result in (('black_win', 'white_forfeit') if playing_white
+                            else ('white_win', 'black_forfeit'))
+        m.outcome = ('Win' if won else 'Loss' if lost
+                     else 'Draw' if m.result == 'draw' else m.get_result_display())
+
     return render(request, 'members/profile.html', {
         'member': member,
         'wins': wins, 'losses': losses, 'draws': draws, 'games': games,
         'win_pct': round(wins / games * 100) if games else 0,
         'recent_matches': recent_matches,
         'tournament_rows': tournament_rows,
-        'chart_labels': json.dumps(chart_labels),
-        'chart_data': json.dumps(chart_data),
+        'rating_chart': rating_sparkline(chart_data, chart_labels),
         'is_own_profile': request.user.is_authenticated and hasattr(request.user, 'member') and request.user.member.pk == member.pk,
     })
+
+
+def rating_sparkline(ratings, labels, width=640, height=160, pad=24):
+    """Rating history as plain SVG geometry, computed here and drawn inline.
+
+    The profile page used to pull Chart.js from a CDN, roughly 200 KB of
+    JavaScript, to draw one line through a handful of points. On a metered
+    bundle in Bulawayo that is most of the cost of the page, for a chart that
+    never animates, never gets hovered on a phone, and never changes after
+    load.
+
+    This returns the numbers an inline <svg> needs. No library, no script tag,
+    no request. It scales to the actual range rather than to zero, because an
+    ELO chart anchored at 0 shows a flat line near the top and hides the very
+    movement it exists to show.
+    """
+    if not ratings or len(ratings) < 2:
+        return None
+
+    low, high = min(ratings), max(ratings)
+    # A dead flat history would divide by zero, and deserves a band anyway.
+    span = (high - low) or 40
+    low, high = low - span * 0.15, high + span * 0.15
+    span = high - low
+
+    step = (width - pad * 2) / (len(ratings) - 1)
+    points = []
+    for i, value in enumerate(ratings):
+        x = pad + i * step
+        y = pad + (height - pad * 2) * (1 - (value - low) / span)
+        points.append((round(x, 1), round(y, 1)))
+
+    return {
+        'width': width,
+        'height': height,
+        'line': ' '.join(f'{x},{y}' for x, y in points),
+        # Closed back along the baseline, for a soft fill under the line.
+        'area': (f'{points[0][0]},{height - pad} '
+                 + ' '.join(f'{x},{y}' for x, y in points)
+                 + f' {points[-1][0]},{height - pad}'),
+        'last': points[-1],
+        'low': min(ratings),
+        'high': max(ratings),
+        'first_label': labels[0] if labels else '',
+        'last_label': labels[-1] if labels else '',
+        'current': ratings[-1],
+    }
 
 
 @login_required
