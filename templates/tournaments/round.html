@@ -1,157 +1,133 @@
 {% extends 'base.html' %}
-{% block title %}Round {{ round.number }} — {{ tournament.name }}{% endblock %}
+
+{% block title %}Round {{ round.number }}, {{ tournament.name }}{% endblock %}
+{% block description %}Pairings and results for round {{ round.number }} of {{ tournament.name }}.{% endblock %}
+
+{% comment %}
+  THE SATURDAY PAGE. A player in the NUST hall opens this to find out which
+  board they are on and who they have. Until 2026-09-16 it returned a hard
+  500 for everyone, because of a `{% templatetag openblock %} with {% templatetag closeblock %}`
+  tag using boolean operators, which that tag does not support. See
+  tournaments/views.py and core.tests.EveryTemplateParses.
+
+  Your own game is marked with a rule down the left of the row AND the word
+  "you", never colour alone, because the hall is bright and phone screens get
+  turned all the way down to save battery.
+
+  Result glyphs stay as numerals and a half sign. Those are the notation
+  chess actually uses on a wallchart, they are not decoration, and unlike the
+  medal emoji elsewhere on this site they render everywhere.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="wrap page">
 
-  <!-- Tournament header -->
-  <div class="mb-3">
-    <a href="{% url 'tournament_list' %}" class="text-muted small">&larr; All Tournaments</a>
-    <h3 class="fw-bold mt-1 mb-0">{{ tournament.name }}</h3>
-    <div class="text-muted small">
-      {{ tournament.association.name }} &middot; {{ tournament.get_format_display }}
-      &middot; {{ tournament.start_date }} – {{ tournament.end_date }}
-      &middot; <span class="badge bg-secondary">{{ tournament.get_status_display }}</span>
-    </div>
-  </div>
+  {% include 'tournaments/_header.html' with active='round' %}
 
-  <!-- Sub-navigation -->
-  <ul class="nav nav-tabs mb-4">
-    <li class="nav-item">
-      <a class="nav-link" href="{% url 'tournament_detail' tournament.pk %}">Overview</a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link" href="{% url 'tournament_standings' tournament.pk %}">Standings</a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link" href="{% url 'tournament_crosstable' tournament.pk %}">Crosstable</a>
-    </li>
-    {% for r in rounds %}
-    <li class="nav-item">
-      <a class="nav-link{% if r.number == round.number %} active fw-semibold{% elif not r.is_complete %} text-muted{% endif %}"
-         href="{% url 'tournament_round' tournament.pk r.number %}">
-        R{{ r.number }}{% if not r.is_complete and r.number != round.number %} <span style="font-size:0.7em;">●</span>{% endif %}
-      </a>
-    </li>
-    {% endfor %}
-  </ul>
-
-  <!-- Round heading -->
-  <div class="d-flex align-items-center justify-content-between mb-3">
+  <div class="between" style="margin-bottom:var(--s-4);">
     <div>
-      <h5 class="fw-bold mb-0">Round {{ round.number }}</h5>
-      <div class="text-muted small">
-        {% if round.started_at %}Started {{ round.started_at|date:"d M Y, H:i" }}{% endif %}
+      <h2 style="font-size:var(--t-xl);margin:0;">Round {{ round.number }}</h2>
+      <p class="small muted" style="margin:0;">
         {% if round.is_complete %}
-          &middot; <span class="text-success fw-semibold">Complete</span>
+          All results in.
         {% else %}
-          &middot; <span class="text-warning fw-semibold">In progress</span>
+          Being played. Results appear as they are recorded.
         {% endif %}
-      </div>
+        {% if round.start_time %}
+          Started <span class="num">{{ round.start_time|date:"d M Y, H:i" }}</span>.
+        {% endif %}
+      </p>
     </div>
-
-    <!-- Round prev/next navigation -->
-    <div class="btn-group btn-group-sm">
+    <div style="display:flex;gap:var(--s-2);">
       {% if round.number > 1 %}
-      <a href="{% url 'tournament_round' tournament.pk round.number|add:'-1' %}"
-         class="btn btn-outline-secondary">&lsaquo; R{{ round.number|add:'-1' }}</a>
+        <a class="btn btn-quiet btn-sm"
+           href="{% url 'tournament_round' tournament.pk round.number|add:'-1' %}">
+          Round {{ round.number|add:'-1' }}
+        </a>
       {% endif %}
       {% for r in rounds %}
         {% if r.number == round.number|add:'1' %}
-        <a href="{% url 'tournament_round' tournament.pk r.number %}"
-           class="btn btn-outline-secondary">R{{ r.number }} &rsaquo;</a>
+          <a class="btn btn-quiet btn-sm"
+             href="{% url 'tournament_round' tournament.pk r.number %}">
+            Round {{ r.number }}
+          </a>
         {% endif %}
       {% endfor %}
     </div>
   </div>
 
-  <!-- Pairings table -->
   {% if not matches %}
-    <div class="alert alert-secondary">No pairings generated for this round yet.</div>
+    <div class="panel"><div class="empty">
+      <strong>Not paired yet</strong>
+      Pairings for this round appear here as soon as the director generates
+      them. Swiss pairings are made once the previous round is complete.
+    </div></div>
   {% else %}
-    <div class="table-responsive">
-      <table class="table table-hover align-middle">
+    <div class="panel panel-tight">
+      <table class="grid">
         <thead>
           <tr>
-            <th style="width:3.5rem;" class="text-center">Board</th>
+            <th style="width:4rem;">Board</th>
             <th>White</th>
-            <th class="text-center" style="width:7rem;">Result</th>
+            <th class="c" style="width:7rem;">Result</th>
             <th>Black</th>
-            <th style="width:3rem;"></th>
           </tr>
         </thead>
         <tbody>
           {% for match in matches %}
-          <tr{% if match.viewer_is_white or match.viewer_is_black %} class="table-active"{% endif %}>
+          <tr{% if match.viewer_is_white or match.viewer_is_black %} style="box-shadow:inset 3px 0 0 var(--bch-terracotta);"{% endif %}>
 
-            <!-- Board number -->
-            <td class="text-center text-muted small">
+            <td class="num muted">
               {% if match.black_player %}
-                {{ match.board_number|default:"—" }}
+                {{ match.board_number|default:"" }}
               {% else %}
-                <span title="Bye">BYE</span>
+                <span class="tag tag-quiet">Bye</span>
               {% endif %}
             </td>
 
-            <!-- White player -->
             <td>
-              <span class="{% if match.viewer_is_white %}fw-bold{% endif %}">
+              <span {% if match.viewer_is_white %}style="font-weight:700;"{% endif %}>
                 {{ match.white_player.user.get_full_name|default:match.white_player.user.username }}
               </span>
-              <span class="text-muted small ms-1">({{ match.white_player.rating }})</span>
-              {% if match.result in "white_win,black_forfeit" %}
-                <span class="badge bg-success ms-1">1</span>
-              {% elif match.result == 'draw' %}
-                <span class="badge bg-secondary ms-1">½</span>
-              {% elif match.result in "black_win,white_forfeit" and match.black_player %}
-                <span class="badge bg-danger ms-1">0</span>
+              {% if match.viewer_is_white %}
+                <span class="tag tag-live" style="margin-left:var(--s-2);">You</span>
               {% endif %}
+              <div class="tiny muted num">{{ match.white_player.rating }}</div>
             </td>
 
-            <!-- Result -->
-            <td class="text-center">
-              {% if match.black_player is None %}
-                <span class="text-muted small">full point bye</span>
+            <td class="c num nowrap" style="font-weight:700;">
+              {% if not match.black_player %}
+                <span class="tiny muted" style="font-weight:400;">full point bye</span>
               {% elif match.result == 'pending' %}
-                <span class="text-muted">—</span>
-              {% elif match.result == 'white_win' %}
-                <span class="fw-bold">1 – 0</span>
-              {% elif match.result == 'black_win' %}
-                <span class="fw-bold">0 – 1</span>
-              {% elif match.result == 'draw' %}
-                <span class="fw-bold">½ – ½</span>
+                <span class="muted" style="font-weight:400;">not played</span>
+              {% elif match.result == 'white_win' %}1 - 0
+              {% elif match.result == 'black_win' %}0 - 1
+              {% elif match.result == 'draw' %}&frac12; - &frac12;
               {% elif match.result == 'white_forfeit' %}
-                <span class="text-muted small">w. forfeit</span>
+                <span class="tiny muted" style="font-weight:400;">white forfeit</span>
               {% elif match.result == 'black_forfeit' %}
-                <span class="text-muted small">b. forfeit</span>
+                <span class="tiny muted" style="font-weight:400;">black forfeit</span>
               {% endif %}
             </td>
 
-            <!-- Black player -->
             <td>
               {% if match.black_player %}
-                <span class="{% if match.viewer_is_black %}fw-bold{% endif %}">
+                <span {% if match.viewer_is_black %}style="font-weight:700;"{% endif %}>
                   {{ match.black_player.user.get_full_name|default:match.black_player.user.username }}
                 </span>
-                <span class="text-muted small ms-1">({{ match.black_player.rating }})</span>
-                {% if match.result in "black_win,white_forfeit" %}
-                  <span class="badge bg-success ms-1">1</span>
-                {% elif match.result == 'draw' %}
-                  <span class="badge bg-secondary ms-1">½</span>
-                {% elif match.result in "white_win,black_forfeit" %}
-                  <span class="badge bg-danger ms-1">0</span>
+                {% if match.viewer_is_black %}
+                  <span class="tag tag-live" style="margin-left:var(--s-2);">You</span>
                 {% endif %}
+                <div class="tiny muted num">{{ match.black_player.rating }}</div>
               {% else %}
-                <span class="text-muted small">—</span>
+                <span class="muted small">no opponent this round</span>
               {% endif %}
-            </td>
-
-            <!-- Game viewer link -->
-            <td class="text-center">
               {% if match.pgn or match.lichess_game_id %}
-                <a href="{% url 'match_detail' match.pk %}"
-                   class="btn btn-sm btn-outline-secondary px-2 py-0"
-                   title="View game">♟</a>
+                <div class="tiny" style="margin-top:2px;">
+                  <a href="{% url 'match_detail' match.pk %}">Replay the game</a>
+                </div>
               {% endif %}
             </td>
 
@@ -162,9 +138,9 @@
     </div>
 
     {% if viewer_member %}
-    <p class="text-muted small mt-1">
-      <span class="table-active px-1 rounded">Highlighted row</span> = your game.
-    </p>
+      <p class="tiny muted" style="margin-top:var(--s-4);">
+        Your own game is marked with a rule down the left of the row.
+      </p>
     {% endif %}
   {% endif %}
 

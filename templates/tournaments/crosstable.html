@@ -1,85 +1,81 @@
 {% extends 'base.html' %}
-{% block title %}Crosstable — {{ tournament.name }}{% endblock %}
+
+{% block title %}Crosstable, {{ tournament.name }}{% endblock %}
+{% block description %}Every result against every opponent in {{ tournament.name }}.{% endblock %}
+
+{% comment %}
+  The densest page on the site: an N by N grid where every cell is one game.
+
+  Result colours are pulled onto the palette. The old ones were Bootstrap's
+  alert greens and reds, which on a warm terracotta and bone site read as
+  borrowed from somewhere else, because they were.
+
+  A colour-only result would be unreadable to a colour-blind player, so the
+  cell still carries its number: 1, a half, or 0. Colour is reinforcement
+  here, never the only carrier of meaning.
+
+  Medals removed for the same reason as on standings: U+1F947 to U+1F949 fall
+  back to three identical empty boxes on the handsets this is opened on.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block extra_head %}
 <style>
-  .ct-table th, .ct-table td {
-    text-align: center;
-    vertical-align: middle;
-    padding: 6px 8px;
-    font-size: 0.88rem;
-    white-space: nowrap;
+  .ct { width: 100%; border-collapse: collapse; font-size: var(--t-sm); }
+  .ct th, .ct td {
+    text-align: center; vertical-align: middle;
+    padding: var(--s-2); white-space: nowrap;
+    border: 1px solid var(--bch-sand);
+    font-variant-numeric: tabular-nums;
   }
-  .ct-table td.ct-player {
-    text-align: left;
-    white-space: nowrap;
-    max-width: 180px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .ct thead th {
+    background: var(--bch-ink); color: var(--bch-bone);
+    font-size: var(--t-xs); font-weight: 700;
+    border-color: var(--bch-granite);
   }
-  .ct-win      { background: #d1f5d3; color: #155724; font-weight: 700; }
-  .ct-loss     { background: #f8d7da; color: #721c24; }
-  .ct-draw     { background: #e2e3e5; color: #383d41; font-weight: 600; }
-  .ct-diagonal { background: var(--chess-dark); color: var(--chess-dark); }
-  .ct-empty    { color: #ccc; }
-  .ct-score    { font-weight: 700; color: var(--chess-accent); border-left: 2px solid #dee2e6; }
-  .ct-rank     { width: 2.2rem; color: #888; font-size: 0.8rem; }
-  .ct-num      { width: 2rem; font-size: 0.8rem; color: #888; }
+  .ct td.ct-player {
+    text-align: left; max-width: 12rem;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .ct-win      { background: rgba(79,122,72,.18);  color: var(--bch-win);  font-weight: 700; }
+  .ct-loss     { background: rgba(156,74,60,.14);  color: var(--bch-loss); }
+  .ct-draw     { background: var(--bch-sand);      color: var(--bch-granite); font-weight: 600; }
+  /* The diagonal is a player against themselves: not a missing result, a
+     cell that cannot exist. Filled solid so the eye skips it. */
+  .ct-diagonal { background: var(--bch-clay); }
+  .ct-empty    { color: var(--bch-mist); }
+  .ct-score    { font-weight: 700; color: var(--bch-terracotta); border-left-width: 2px; }
+  .ct-rank     { width: 2.4rem; color: var(--bch-stone); font-size: var(--t-xs); }
+  .ct-num      { width: 2.2rem; }
+  /* The whole grid scrolls sideways rather than the page. */
+  .ct-scroll { overflow-x: auto; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5">
+<div class="wrap page">
 
-  <!-- Tournament header -->
-  <div class="mb-3">
-    <a href="{% url 'tournament_list' %}" class="text-muted small">&larr; All Tournaments</a>
-    <h3 class="fw-bold mt-1 mb-0">{{ tournament.name }}</h3>
-    <div class="text-muted small">
-      {{ tournament.association.name }} &middot; {{ tournament.get_format_display }}
-      &middot; {{ tournament.start_date }} – {{ tournament.end_date }}
-      &middot; <span class="badge bg-secondary">{{ tournament.get_status_display }}</span>
-    </div>
-  </div>
-
-  <!-- Sub-navigation -->
-  <ul class="nav nav-tabs mb-4">
-    <li class="nav-item">
-      <a class="nav-link" href="{% url 'tournament_detail' tournament.pk %}">Overview</a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link" href="{% url 'tournament_standings' tournament.pk %}">Standings</a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link active fw-semibold" href="{% url 'tournament_crosstable' tournament.pk %}">Crosstable</a>
-    </li>
-    {% for r in rounds %}
-    <li class="nav-item">
-      <a class="nav-link{% if not r.is_complete %} text-muted{% endif %}"
-         href="{% url 'tournament_round' tournament.pk r.number %}">
-        R{{ r.number }}{% if not r.is_complete %} <span style="font-size:0.7em;">●</span>{% endif %}
-      </a>
-    </li>
-    {% endfor %}
-  </ul>
+  {% include 'tournaments/_header.html' with active='crosstable' %}
 
   {% if not crosstable %}
-    <div class="alert alert-secondary">
-      No confirmed players yet — the crosstable will appear once the tournament begins.
-    </div>
+    <div class="panel"><div class="empty">
+      <strong>No crosstable yet</strong>
+      It appears once results start being recorded. Until then the overview
+      lists who has entered.
+    </div></div>
   {% else %}
 
-  <div class="card p-3">
-    <div class="table-responsive">
-      <table class="table table-bordered ct-table mb-0">
+    <div class="panel"><div class="panel-body ct-scroll">
+      <table class="ct">
         <thead>
-          <tr style="background:var(--chess-dark);color:white;">
+          <tr>
             <th class="ct-rank">#</th>
             <th style="text-align:left;">Player</th>
             {% for p in crosstable.players %}
-            <th class="ct-num" title="{{ p.user.get_full_name|default:p.user.username }}">
-              {{ forloop.counter }}
-            </th>
+              <th class="ct-num" title="{{ p.user.get_full_name|default:p.user.username }}">
+                {{ forloop.counter }}
+              </th>
             {% endfor %}
             <th class="ct-score">Pts</th>
           </tr>
@@ -87,49 +83,33 @@
         <tbody>
           {% for row in crosstable.rows %}
           <tr>
-            <!-- Rank -->
-            <td class="ct-rank">
-              {% if row.rank == 1 %}🥇
-              {% elif row.rank == 2 %}🥈
-              {% elif row.rank == 3 %}🥉
-              {% else %}{{ row.rank }}{% endif %}
+            <td class="ct-rank" {% if row.rank <= 3 %}style="color:var(--bch-ochre);font-weight:700;"{% endif %}>
+              {{ row.rank }}
             </td>
-
-            <!-- Player name -->
             <td class="ct-player">
-              <a href="{% url 'player_profile' row.player.pk %}" class="text-decoration-none fw-semibold">
+              <a href="{% url 'player_profile' row.player.pk %}" style="font-weight:600;">
                 {{ row.player.user.get_full_name|default:row.player.user.username }}
               </a>
-              <span class="text-muted ms-1" style="font-size:0.78rem;">({{ row.player.rating }})</span>
+              <span class="tiny muted">({{ row.player.rating }})</span>
             </td>
-
-            <!-- Result cells -->
             {% for cell in row.cells %}
-            <td class="ct-{{ cell.type }}">{{ cell.value }}</td>
+              <td class="ct-{{ cell.type }}">{{ cell.value }}</td>
             {% endfor %}
-
-            <!-- Total score -->
-            <td class="ct-score">
-              {% if row.score == row.score|floatformat:"0"|add:"0" %}
-                {{ row.score|floatformat:"0" }}
-              {% else %}
-                {{ row.score|floatformat:"1" }}
-              {% endif %}
-            </td>
+            <td class="ct-score">{{ row.score|floatformat:"-1" }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
-    </div>
-  </div>
+    </div></div>
 
-  <!-- Legend -->
-  <div class="d-flex gap-3 mt-3 flex-wrap" style="font-size:0.8rem;">
-    <span><span class="badge ct-win px-2">1</span> Win</span>
-    <span><span class="badge ct-draw px-2">½</span> Draw</span>
-    <span><span class="badge ct-loss px-2">0</span> Loss</span>
-    <span class="text-muted">Column headers are player numbers (hover to see name).</span>
-  </div>
+    <div class="small" style="display:flex;gap:var(--s-4);flex-wrap:wrap;margin-top:var(--s-4);align-items:center;">
+      <span><span class="ct-win" style="padding:2px 8px;border-radius:2px;">1</span> Win</span>
+      <span><span class="ct-draw" style="padding:2px 8px;border-radius:2px;">&frac12;</span> Draw</span>
+      <span><span class="ct-loss" style="padding:2px 8px;border-radius:2px;">0</span> Loss</span>
+      <span class="muted tiny">
+        Column numbers match the row numbers. Hold a column heading to see whose it is.
+      </span>
+    </div>
 
   {% endif %}
 

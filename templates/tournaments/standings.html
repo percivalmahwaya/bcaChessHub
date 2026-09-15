@@ -1,97 +1,82 @@
 {% extends 'base.html' %}
-{% block title %}Standings — {{ tournament.name }}{% endblock %}
+
+{% block title %}Standings, {{ tournament.name }}{% endblock %}
+{% block description %}Live standings for {{ tournament.name }}, with Buchholz tiebreaks.{% endblock %}
+
+{% comment %}
+  A competitive surface, so it goes quiet and dense: the inside of the hall,
+  where it is silent apart from the clocks.
+
+  The medals are gone. The top three were drawn with U+1F947 to U+1F949, which
+  on a mid-range Android handset frequently render as three identical empty
+  boxes, meaning first, second and third became indistinguishable in exactly
+  the place where the distinction is the entire point. They are numbers in
+  ochre now, and the leader's row carries a rule down its edge.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="wrap page">
 
-  <!-- Tournament header -->
-  <div class="mb-3">
-    <a href="{% url 'tournament_list' %}" class="text-muted small">&larr; All Tournaments</a>
-    <h3 class="fw-bold mt-1 mb-0">{{ tournament.name }}</h3>
-    <div class="text-muted small">
-      {{ tournament.association.name }} &middot; {{ tournament.get_format_display }}
-      &middot; {{ tournament.start_date }} – {{ tournament.end_date }}
-      &middot; <span class="badge bg-secondary">{{ tournament.get_status_display }}</span>
-    </div>
-  </div>
-
-  <!-- Sub-navigation -->
-  <ul class="nav nav-tabs mb-4">
-    <li class="nav-item">
-      <a class="nav-link" href="{% url 'tournament_detail' tournament.pk %}">Overview</a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link active fw-semibold" href="{% url 'tournament_standings' tournament.pk %}">Standings</a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link" href="{% url 'tournament_crosstable' tournament.pk %}">Crosstable</a>
-    </li>
-    {% for r in rounds %}
-    <li class="nav-item">
-      <a class="nav-link{% if not r.is_complete %} text-muted{% endif %}"
-         href="{% url 'tournament_round' tournament.pk r.number %}">
-        R{{ r.number }}{% if not r.is_complete %} <span style="font-size:0.7em;">●</span>{% endif %}
-      </a>
-    </li>
-    {% endfor %}
-  </ul>
+  {% include 'tournaments/_header.html' with active='standings' %}
 
   {% if not standings %}
-    <div class="alert alert-secondary">
-      No confirmed players yet — standings will appear once the tournament begins.
-    </div>
+    <div class="panel"><div class="empty">
+      <strong>No standings yet</strong>
+      Standings appear once the first round has been paired and a result
+      recorded. Confirmed entries are listed on the overview.
+    </div></div>
   {% else %}
-    <div class="table-responsive">
-      <table class="table table-hover align-middle">
+    <div class="panel panel-tight quiet" style="border-color:transparent;">
+      <table class="grid">
         <thead>
           <tr>
             <th style="width:3rem;">#</th>
             <th>Player</th>
-            <th class="text-center" title="Total score">Pts</th>
-            <th class="text-center" title="Wins">W</th>
-            <th class="text-center" title="Draws">D</th>
-            <th class="text-center" title="Losses">L</th>
-            <th class="text-center d-none d-md-table-cell" title="Byes">Bye</th>
-            <th class="text-center d-none d-md-table-cell" title="Buchholz tiebreaker">Buch.</th>
-            <th class="text-center d-none d-sm-table-cell" title="Current ELO rating">ELO</th>
+            <th class="r">Pts</th>
+            <th class="r">W</th>
+            <th class="r">D</th>
+            <th class="r">L</th>
+            <th class="r hide-phone" title="Byes">Bye</th>
+            <th class="r hide-phone" title="Buchholz tiebreak">Buch</th>
+            <th class="r hide-phone">ELO</th>
           </tr>
         </thead>
         <tbody>
           {% for row in standings %}
-          <tr{% if row.rank == 1 %} class="table-warning"{% elif row.rank <= 3 %} class="table-light"{% endif %}>
-            <td>
-              {% if row.rank == 1 %}🥇
-              {% elif row.rank == 2 %}🥈
-              {% elif row.rank == 3 %}🥉
-              {% else %}{{ row.rank }}{% endif %}
+          <tr{% if row.rank == 1 %} style="box-shadow:inset 3px 0 0 var(--bch-ochre);"{% endif %}>
+            <td class="num" {% if row.rank <= 3 %}style="color:var(--bch-ochre);font-weight:700;"{% endif %}>
+              {{ row.rank }}
             </td>
             <td>
-              <strong>{{ row.player.user.get_full_name|default:row.player.user.username }}</strong>
-              <div class="text-muted small">{{ row.player.get_role_display }}</div>
+              <span style="font-weight:600;">{{ row.player.user.get_full_name|default:row.player.user.username }}</span>
+              <div class="tiny muted">
+                {{ row.player.get_role_display }}
+                <span class="show-phone">
+                  Buchholz {{ row.buchholz|floatformat:"1" }}, ELO {{ row.player.rating }}
+                </span>
+              </div>
             </td>
-            <td class="text-center fw-bold fs-5">
-              {% if row.score == row.score|floatformat:"0"|add:"0" %}
-                {{ row.score|floatformat:"0" }}
-              {% else %}
-                {{ row.score|floatformat:"1" }}
-              {% endif %}
+            <td class="r num" style="font-weight:700;font-size:var(--t-lg);">
+              {{ row.score|floatformat:"-1" }}
             </td>
-            <td class="text-center">{{ row.wins }}</td>
-            <td class="text-center">{{ row.draws }}</td>
-            <td class="text-center">{{ row.losses }}</td>
-            <td class="text-center d-none d-md-table-cell text-muted small">{{ row.byes }}</td>
-            <td class="text-center d-none d-md-table-cell text-muted small">
-              {{ row.buchholz|floatformat:"1" }}
-            </td>
-            <td class="text-center d-none d-sm-table-cell text-muted small">{{ row.player.rating }}</td>
+            <td class="r num">{{ row.wins }}</td>
+            <td class="r num">{{ row.draws }}</td>
+            <td class="r num">{{ row.losses }}</td>
+            <td class="r num hide-phone muted">{{ row.byes }}</td>
+            <td class="r num hide-phone muted">{{ row.buchholz|floatformat:"1" }}</td>
+            <td class="r num hide-phone muted">{{ row.player.rating }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
 
-    <p class="text-muted small mt-2">
-      Tiebreaker: Buchholz (sum of opponents' scores). Sorted by Points → Buchholz → ELO.
+    <p class="tiny muted" style="margin-top:var(--s-4);max-width:62ch;">
+      Sorted by points, then Buchholz, then ELO. Buchholz is the sum of your
+      opponents' scores, so beating a field that went on to do well counts for
+      more than beating a field that did not.
     </p>
   {% endif %}
 

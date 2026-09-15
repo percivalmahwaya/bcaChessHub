@@ -1,0 +1,41 @@
+{% comment %}
+  Tournament header and sub-navigation, shared by overview, standings,
+  crosstable and each round.
+
+  It was copied into all four before, which is why the round links drifted:
+  one copy marked an incomplete round with a bullet character, another did
+  not, and a fifth page had no rounds in its nav at all.
+
+  Expects `tournament`, `rounds`, and `active` as one of:
+      overview | standings | crosstable | round
+  For a round page, also pass `round` so the current one is marked.
+{% endcomment %}
+<div style="margin-bottom:var(--s-4);">
+  <a href="{% url 'tournament_list' %}" class="tiny muted">All tournaments</a>
+  <h1 class="page-title" style="margin-top:var(--s-1);">{{ tournament.name }}</h1>
+  <p class="page-sub" style="margin:0;">
+    {{ tournament.association.name }}
+    &middot; {{ tournament.get_format_display }}
+    &middot; <span class="num">{{ tournament.start_date|date:"d M" }}</span>
+      to <span class="num">{{ tournament.end_date|date:"d M Y" }}</span>
+    &middot; {{ tournament.location }}
+    <span class="tag {% if tournament.status == 'registration_open' %}tag-open{% elif tournament.status == 'in_progress' %}tag-live{% elif tournament.status == 'completed' %}tag-done{% else %}tag-soon{% endif %}"
+          style="margin-left:var(--s-2);">{{ tournament.get_status_display }}</span>
+  </p>
+</div>
+
+<nav class="tabs small">
+  <a href="{% url 'tournament_detail' tournament.pk %}"
+     {% if active == 'overview' %}class="on"{% endif %}>Overview</a>
+  <a href="{% url 'tournament_standings' tournament.pk %}"
+     {% if active == 'standings' %}class="on"{% endif %}>Standings</a>
+  <a href="{% url 'tournament_crosstable' tournament.pk %}"
+     {% if active == 'crosstable' %}class="on"{% endif %}>Crosstable</a>
+  {% for r in rounds %}
+    {# An unfinished round is marked with the word, not a bullet glyph. #}
+    <a href="{% url 'tournament_round' tournament.pk r.number %}"
+       {% if active == 'round' and round.number == r.number %}class="on"{% endif %}>
+      Round {{ r.number }}{% if not r.is_complete %} <span class="tiny muted">(playing)</span>{% endif %}
+    </a>
+  {% endfor %}
+</nav>

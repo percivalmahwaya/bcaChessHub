@@ -200,13 +200,10 @@ class HouseRules(TestCase):
         "payments/pay.html",
         "payments/return.html",
         "payments/sandbox_checkout.html",
-        "tournaments/crosstable.html",
         "tournaments/detail.html",
         "tournaments/manage.html",
         "tournaments/print.html",
-        "tournaments/round.html",
-        "tournaments/standings.html",
-    }
+        }
 
     # Email is a different medium. Mail clients strip stylesheets, so those
     # templates carry inline styles by necessity and are excluded from the
