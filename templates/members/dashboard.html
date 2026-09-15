@@ -1,306 +1,285 @@
 {% extends 'base.html' %}
 
-{% block title %}My Dashboard — ChessHub{% endblock %}
+{% block title %}Dashboard{% endblock %}
+
+{% comment %}
+  Where a signed-in player lands. Fourteen emoji were used as icons here, more
+  than anywhere else on the site, including a graduation cap for coaching and
+  a spanner for the Django admin. They are words now.
+
+  The match history carried two near-identical copies of every row, one for
+  playing White and one for Black, which is how two copies of anything drift
+  apart. Colour, opponent and outcome are annotated in the view.
+
+  A note on the bug fixed alongside this: the notifications panel was always
+  empty, and opening this page silently marked every unread alert as read. See
+  members/views.py.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5">
+<div class="wrap page">
 
-  <div class="row g-4">
+  <div class="row">
 
-    <!-- LEFT COLUMN: profile + stats -->
-    <div class="col-lg-4">
+    {# =============================================================== left #}
+    <div class="col-4">
 
-      <!-- Profile card -->
-      <div class="card p-4 mb-4 text-center">
-        <div class="mb-3 position-relative d-inline-block">
-          {% if member.profile_photo %}
-            <img src="{{ member.profile_photo.url }}" class="rounded-circle" width="90" height="90"
-                 style="object-fit:cover;border:3px solid var(--chess-accent);">
-          {% else %}
-            <div class="rounded-circle d-inline-flex align-items-center justify-content-center"
-                 style="width:90px;height:90px;background:var(--chess-dark);font-size:2rem;color:var(--chess-gold);">
-              ♟
+      <div class="panel" style="margin-bottom:var(--s-5);">
+        <div class="panel-body">
+          <div style="display:flex;gap:var(--s-4);align-items:center;">
+            {% if member.profile_photo %}
+              <img class="avatar avatar-lg" src="{{ member.profile_photo.url }}"
+                   alt="{{ member.user.get_full_name|default:member.user.username }}">
+            {% else %}
+              {% comment %}
+                Initials, not a chess pawn glyph. The glyph rendered as an
+                empty box on handsets without Miscellaneous Symbols coverage,
+                so the profile picture slot showed a missing character.
+              {% endcomment %}
+              <div class="avatar avatar-lg" style="display:flex;align-items:center;
+                   justify-content:center;background:var(--bch-ink);color:var(--bch-ochre);
+                   font-size:var(--t-xl);font-weight:700;">
+                {{ member.user.get_full_name|default:member.user.username|slice:":1"|upper }}
+              </div>
+            {% endif %}
+            <div style="min-width:0;">
+              <h1 style="font-size:var(--t-lg);margin:0;">
+                {{ member.user.get_full_name|default:member.user.username }}
+              </h1>
+              <div class="tiny muted">{{ member.association.name }}</div>
+              <span class="tag tag-quiet" style="margin-top:var(--s-1);display:inline-block;">
+                {{ member.get_role_display }}
+              </span>
             </div>
+          </div>
+
+          <div class="dl" style="margin-top:var(--s-5);">
+            <div>
+              <dt>Rating</dt>
+              <dd class="num" style="font-size:var(--t-2xl);font-weight:700;color:var(--bch-terracotta);">{{ member.rating }}</dd>
+            </div>
+            <div>
+              <dt>Games</dt>
+              <dd class="num" style="font-size:var(--t-2xl);font-weight:700;">{{ stats.games_played }}</dd>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:var(--s-5);">
+        <div class="panel-head"><h3>Record</h3></div>
+        <div class="panel-body">
+          <div class="dl" style="margin-bottom:var(--s-4);">
+            <div><dt>Won</dt><dd class="num" style="color:var(--bch-win);font-weight:700;">{{ stats.wins }}</dd></div>
+            <div><dt>Drawn</dt><dd class="num" style="font-weight:700;">{{ stats.draws }}</dd></div>
+            <div><dt>Lost</dt><dd class="num" style="color:var(--bch-loss);font-weight:700;">{{ stats.losses }}</dd></div>
+          </div>
+
+          {% if stats.games_played > 0 %}
+            {% comment %}
+              One flat bar in three segments, no rounded progress widget. Each
+              segment is labelled underneath, because a bar alone tells a
+              colour-blind reader nothing.
+            {% endcomment %}
+            <div style="display:flex;height:8px;border-radius:2px;overflow:hidden;background:var(--bch-sand);">
+              <div style="width:{{ stats.win_rate }}%;background:var(--bch-win);"></div>
+              <div style="width:{{ stats.draw_rate }}%;background:var(--bch-draw);"></div>
+              <div style="width:{{ stats.loss_rate }}%;background:var(--bch-loss);"></div>
+            </div>
+            <div class="tiny muted" style="display:flex;justify-content:space-between;margin-top:var(--s-2);">
+              <span>Won <span class="num">{{ stats.win_rate }}%</span></span>
+              <span>Drawn <span class="num">{{ stats.draw_rate }}%</span></span>
+              <span>Lost <span class="num">{{ stats.loss_rate }}%</span></span>
+            </div>
+          {% else %}
+            <p class="small muted" style="margin:0;">No games played yet.</p>
           {% endif %}
         </div>
-        <h5 class="fw-bold mb-0">{{ member.user.get_full_name|default:member.user.username }}</h5>
-        <p class="text-muted small mb-2">{{ member.association.name }}</p>
-        <span class="badge bg-light text-dark border mb-2">{{ member.get_role_display }}</span>
-        <div class="mb-3 d-flex gap-2 justify-content-center flex-wrap">
-          <a href="{% url 'edit_profile' %}" class="btn btn-outline-secondary btn-sm" style="font-size:0.75rem;">
-            ✏ Edit Profile
-          </a>
-          <a href="{% url 'change_password' %}" class="btn btn-outline-secondary btn-sm" style="font-size:0.75rem;">
-            🔑 Password
-          </a>
-          <a href="{% url 'setup_2fa' %}" class="btn btn-outline-secondary btn-sm position-relative" style="font-size:0.75rem;">
-            🛡 2FA
-            {% if not member.totp_enabled %}
-              <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark"
-                    style="font-size:0.5rem;">OFF</span>
-            {% endif %}
-          </a>
-          <a href="{% url 'challenge_list' %}" class="btn btn-outline-secondary btn-sm position-relative" style="font-size:0.75rem;">
-            ⚔ Challenges
-            {% with pending=member.challenges_received.all %}
-              {% with count=pending|length %}
-                {% for c in pending %}{% if c.status == 'pending' %}{% if forloop.first %}
-                  <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill"
-                        style="background:var(--chess-accent);font-size:0.55rem;" id="challengeBadge">!</span>
-                {% endif %}{% endif %}{% endfor %}
-              {% endwith %}
-            {% endwith %}
-          </a>
-        </div>
-
-        <div class="d-flex justify-content-center gap-4">
-          <div>
-            <div class="fw-bold" style="font-size:1.6rem;color:var(--chess-accent);">{{ member.rating }}</div>
-            <div class="text-muted" style="font-size:0.75rem;">ELO Rating</div>
-          </div>
-          <div>
-            <div class="fw-bold" style="font-size:1.6rem;color:var(--chess-accent);">{{ stats.games_played }}</div>
-            <div class="text-muted" style="font-size:0.75rem;">Games Played</div>
-          </div>
-        </div>
       </div>
 
-      <!-- Win/Loss/Draw stats -->
-      <div class="card p-4 mb-4">
-        <h6 class="fw-bold mb-3">Performance</h6>
-        <div class="row text-center g-2 mb-3">
-          <div class="col-4">
-            <div class="fw-bold text-success" style="font-size:1.4rem;">{{ stats.wins }}</div>
-            <div class="text-muted" style="font-size:0.75rem;">Wins</div>
-          </div>
-          <div class="col-4">
-            <div class="fw-bold text-secondary" style="font-size:1.4rem;">{{ stats.draws }}</div>
-            <div class="text-muted" style="font-size:0.75rem;">Draws</div>
-          </div>
-          <div class="col-4">
-            <div class="fw-bold text-danger" style="font-size:1.4rem;">{{ stats.losses }}</div>
-            <div class="text-muted" style="font-size:0.75rem;">Losses</div>
-          </div>
+      <div class="panel" style="margin-bottom:var(--s-5);">
+        <div class="panel-head">
+          <h3>Alerts</h3>
+          <a href="{% url 'notification_centre' %}">All alerts</a>
         </div>
-
-        {% if stats.games_played > 0 %}
-          <!-- Win rate bar -->
-          <div class="mb-1 d-flex justify-content-between small text-muted">
-            <span>Win rate</span>
-            <span>{{ stats.win_rate }}%</span>
-          </div>
-          <div class="progress mb-3" style="height:8px;border-radius:8px;">
-            <div class="progress-bar bg-success" style="width:{{ stats.win_rate }}%;"></div>
-            <div class="progress-bar bg-secondary" style="width:{{ stats.draw_rate }}%;"></div>
-            <div class="progress-bar bg-danger" style="width:{{ stats.loss_rate }}%;"></div>
-          </div>
-          <div class="d-flex justify-content-between" style="font-size:0.7rem;color:#aaa;">
-            <span style="color:#198754;">■ Win {{ stats.win_rate }}%</span>
-            <span style="color:#6c757d;">■ Draw {{ stats.draw_rate }}%</span>
-            <span style="color:#dc3545;">■ Loss {{ stats.loss_rate }}%</span>
-          </div>
-        {% else %}
-          <p class="text-muted small mb-0 text-center">No games played yet.</p>
-        {% endif %}
-      </div>
-
-      <!-- Notifications -->
-      <div class="card p-4 mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h6 class="fw-bold mb-0">🔔 Notifications</h6>
-          <a href="{% url 'notification_centre' %}" class="btn btn-outline-secondary btn-sm" style="font-size:0.75rem;">
-            View all →
-          </a>
+        <div class="panel-body">
+          {% if notifications %}
+            <div class="stack-sm">
+              {% for n in notifications %}
+                <div style="padding-bottom:var(--s-2);border-bottom:var(--line);">
+                  <div class="small">{{ n.message }}</div>
+                  <div class="tiny muted num">{{ n.sent_at|date:"d M Y, H:i" }}</div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="small muted" style="margin:0;">Nothing new.</p>
+          {% endif %}
         </div>
-        {% if notifications %}
-        <div class="d-flex flex-column gap-2">
-          {% for n in notifications %}
-          <div class="p-2 rounded" style="background:#f8f9fa;font-size:0.82rem;">
-            <div>{{ n.message }}</div>
-            <div class="text-muted mt-1" style="font-size:0.72rem;">{{ n.sent_at|date:"d M Y, H:i" }}</div>
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <p class="text-muted small mb-0">No new notifications.</p>
-        {% endif %}
       </div>
 
       {% if coached_players is not None %}
-      <div class="card p-4 mb-4">
-        <h6 class="fw-bold mb-3">🎓 My Players
-          <span class="badge bg-secondary ms-1">{{ coached_players|length }}</span>
-        </h6>
-        {% if coached_players %}
-        <div class="d-flex flex-column gap-2">
-          {% for p in coached_players %}
-          <div class="d-flex align-items-center justify-content-between py-1" style="border-bottom:1px solid #f5f5f5;">
-            <div>
-              <a href="{% url 'player_profile' p.pk %}" class="fw-semibold text-decoration-none" style="font-size:0.88rem;">
-                {{ p.user.get_full_name|default:p.user.username }}
-              </a>
-            </div>
-            <span class="fw-bold" style="color:var(--chess-accent);font-size:0.85rem;">{{ p.rating }}</span>
+        <div class="panel panel-tight" style="margin-bottom:var(--s-5);">
+          <div class="panel-head">
+            <h3>My players</h3>
+            <span class="tiny muted num">{{ coached_players|length }}</span>
           </div>
-          {% endfor %}
-        </div>
-        <a href="{% url 'rankings' %}" class="btn btn-outline-secondary btn-sm w-100 mt-3" style="font-size:0.78rem;">
-          Full Rankings →
-        </a>
-        {% else %}
-        <p class="text-muted small mb-0">No players assigned to you yet. Ask your association admin.</p>
-        {% endif %}
-      </div>
-      {% endif %}
-
-      {% if user.is_staff or member.role == 'admin' %}
-      <div class="card p-4">
-        <h6 class="fw-bold mb-3">
-          <span style="color:var(--chess-gold);">⚙</span> Admin
-        </h6>
-        <div class="d-flex flex-column gap-2">
-          <a href="{% url 'admin_stats' %}" class="btn btn-outline-secondary btn-sm text-start">
-            📊 Stats Dashboard
-          </a>
-          <a href="{% url 'manage_members' %}" class="btn btn-outline-secondary btn-sm text-start">
-            👥 Manage Members
-          </a>
-          <a href="{% url 'tournament_create' %}" class="btn btn-outline-secondary btn-sm text-start">
-            ♟ Create Tournament
-          </a>
-          {% if user.is_staff %}
-          <a href="/admin/" class="btn btn-outline-secondary btn-sm text-start">
-            🛠 Django Admin
-          </a>
-          {% endif %}
-        </div>
-      </div>
-      {% endif %}
-
-    </div>
-
-    <!-- RIGHT COLUMN: tournaments + match history -->
-    <div class="col-lg-8">
-
-      <!-- My Tournaments -->
-      <div class="card p-4 mb-4">
-        <h5 class="fw-bold mb-3"><i class="bi bi-trophy"></i> My Tournaments</h5>
-
-        {% if registrations %}
-          <div class="d-flex flex-column gap-3">
-            {% for reg in registrations %}
-            <div class="d-flex justify-content-between align-items-center p-3 rounded" style="background:#f8f9fa;">
-              <div>
-                <div class="fw-semibold">{{ reg.tournament.name }}</div>
-                <div class="text-muted small">
-                  <i class="bi bi-geo-alt"></i> {{ reg.tournament.location }} &nbsp;·&nbsp;
-                  <i class="bi bi-calendar"></i> {{ reg.tournament.start_date|date:"d M Y" }}
-                </div>
-              </div>
-              <div class="text-end">
-                <div>
-                  <span class="badge rounded-pill text-white badge-status-{{ reg.tournament.status }} mb-1">
-                    {{ reg.tournament.get_status_display }}
-                  </span>
-                </div>
-                <span class="badge {% if reg.status == 'confirmed' %}bg-success{% elif reg.status == 'pending' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-                  {{ reg.get_status_display }}
-                </span>
-                <div class="mt-1">
-                  <a href="/tournaments/{{ reg.tournament.pk }}/" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:0.75rem;">View</a>
-                </div>
-              </div>
-            </div>
-            {% endfor %}
-          </div>
-        {% else %}
-          <div class="text-center py-4 text-muted">
-            <i class="bi bi-trophy" style="font-size:2rem;"></i>
-            <p class="mt-2 mb-2">You haven't registered for any tournaments yet.</p>
-            <a href="/tournaments/" class="btn btn-chess btn-sm">Browse Tournaments</a>
-          </div>
-        {% endif %}
-      </div>
-
-      <!-- Match History -->
-      <div class="card p-4">
-        <h5 class="fw-bold mb-3"><i class="bi bi-clock-history"></i> Match History</h5>
-
-        {% if recent_matches %}
-          <div class="table-responsive">
-            <table class="table table-hover mb-0" style="font-size:0.88rem;">
-              <thead class="table-light">
-                <tr>
-                  <th>Tournament</th>
-                  <th>Round</th>
-                  <th>Opponent</th>
-                  <th>Colour</th>
-                  <th>Result</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
+          {% if coached_players %}
+            <table class="grid">
               <tbody>
-                {% for match in recent_matches %}
-                  {% if match.white_player == member %}
-                    {% with colour="White" opponent=match.black_player %}
-                      <tr>
-                        <td>{{ match.tournament.name }}</td>
-                        <td>{{ match.round.number }}</td>
-                        <td>{{ opponent.user.get_full_name|default:opponent.user.username }}</td>
-                        <td><span class="badge bg-light text-dark border">♔ White</span></td>
-                        <td>
-                          {% if match.result == 'white_win' %}
-                            <span class="badge bg-success">Win</span>
-                          {% elif match.result == 'black_win' %}
-                            <span class="badge bg-danger">Loss</span>
-                          {% elif match.result == 'draw' %}
-                            <span class="badge bg-secondary">Draw</span>
-                          {% elif match.result == 'white_forfeit' %}
-                            <span class="badge bg-warning text-dark">Forfeit</span>
-                          {% else %}
-                            <span class="badge bg-light text-muted border">Pending</span>
-                          {% endif %}
-                        </td>
-                        <td class="text-muted">{{ match.completed_at|date:"d M Y"|default:"—" }}</td>
-                      </tr>
-                    {% endwith %}
-                  {% else %}
-                    {% with colour="Black" opponent=match.white_player %}
-                      <tr>
-                        <td>{{ match.tournament.name }}</td>
-                        <td>{{ match.round.number }}</td>
-                        <td>{{ opponent.user.get_full_name|default:opponent.user.username }}</td>
-                        <td><span class="badge bg-dark text-white">♚ Black</span></td>
-                        <td>
-                          {% if match.result == 'black_win' %}
-                            <span class="badge bg-success">Win</span>
-                          {% elif match.result == 'white_win' %}
-                            <span class="badge bg-danger">Loss</span>
-                          {% elif match.result == 'draw' %}
-                            <span class="badge bg-secondary">Draw</span>
-                          {% elif match.result == 'black_forfeit' %}
-                            <span class="badge bg-warning text-dark">Forfeit</span>
-                          {% else %}
-                            <span class="badge bg-light text-muted border">Pending</span>
-                          {% endif %}
-                        </td>
-                        <td class="text-muted">{{ match.completed_at|date:"d M Y"|default:"—" }}</td>
-                      </tr>
-                    {% endwith %}
-                  {% endif %}
+                {% for p in coached_players %}
+                <tr>
+                  <td><a href="{% url 'player_profile' p.pk %}">{{ p.user.get_full_name|default:p.user.username }}</a></td>
+                  <td class="r num" style="font-weight:700;">{{ p.rating }}</td>
+                </tr>
                 {% endfor %}
               </tbody>
             </table>
+          {% else %}
+            <div class="empty">
+              <strong>No players assigned</strong>
+              Ask your club administrator to assign players to you.
+            </div>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      <div class="panel">
+        <div class="panel-head"><h3>Your account</h3></div>
+        <div class="panel-body stack-sm">
+          <div><a href="{% url 'edit_profile' %}">Edit your profile</a></div>
+          <div><a href="{% url 'change_password' %}">Change password</a></div>
+          <div>
+            <a href="{% url 'setup_2fa' %}">Two-factor authentication</a>
+            {% if not member.totp_enabled %}
+              <span class="tag tag-soon" style="margin-left:var(--s-2);">Off</span>
+            {% endif %}
           </div>
+          <div>
+            <a href="{% url 'challenge_list' %}">Challenges</a>
+            {% if pending_challenges %}
+              <span class="tag tag-live" style="margin-left:var(--s-2);">{{ pending_challenges }} waiting</span>
+            {% endif %}
+          </div>
+          {% if user.is_staff or member.role == 'admin' %}
+            <div style="padding-top:var(--s-2);border-top:var(--line);margin-top:var(--s-2);">
+              <div><a href="{% url 'admin_stats' %}">Club statistics</a></div>
+              <div><a href="{% url 'manage_members' %}">Manage members</a></div>
+              <div><a href="{% url 'tournament_create' %}">Create a tournament</a></div>
+              {% if user.is_staff %}<div><a href="/admin/">Django admin</a></div>{% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    {# ============================================================== right #}
+    <div class="col-8">
+
+      <div class="panel panel-tight" style="margin-bottom:var(--s-5);">
+        <div class="panel-head">
+          <h3>Your tournaments</h3>
+          <a href="{% url 'tournament_list' %}">All tournaments</a>
+        </div>
+        {% if registrations %}
+          <table class="grid">
+            <thead>
+              <tr>
+                <th>Tournament</th>
+                <th class="hide-phone">Date</th>
+                <th class="r">Your entry</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for reg in registrations %}
+              <tr>
+                <td>
+                  <a href="{% url 'tournament_detail' reg.tournament.pk %}" style="font-weight:600;">
+                    {{ reg.tournament.name }}
+                  </a>
+                  <span class="tag {% if reg.tournament.status == 'registration_open' %}tag-open{% elif reg.tournament.status == 'in_progress' %}tag-live{% elif reg.tournament.status == 'completed' %}tag-done{% else %}tag-soon{% endif %}"
+                        style="margin-left:var(--s-2);">{{ reg.tournament.get_status_display }}</span>
+                  <div class="tiny muted">
+                    {{ reg.tournament.location }}
+                    <span class="show-phone">{{ reg.tournament.start_date|date:"d M Y" }}</span>
+                  </div>
+                </td>
+                <td class="hide-phone small num nowrap">{{ reg.tournament.start_date|date:"d M Y" }}</td>
+                <td class="r">
+                  <span class="tag {% if reg.status == 'confirmed' %}tag-open{% elif reg.status == 'pending' %}tag-soon{% else %}tag-quiet{% endif %}">
+                    {{ reg.get_status_display }}
+                  </span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         {% else %}
-          <div class="text-center py-4 text-muted">
-            <i class="bi bi-controller" style="font-size:2rem;"></i>
-            <p class="mt-2 mb-0">No matches played yet. Register for a tournament to get started.</p>
+          <div class="empty">
+            <strong>You have not entered a tournament yet</strong>
+            Hall events run on Saturdays around Bulawayo.
+            <div style="margin-top:var(--s-4);">
+              <a class="btn btn-primary btn-sm" href="{% url 'tournament_list' %}">See what is on</a>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="panel panel-tight">
+        <div class="panel-head"><h3>Your games</h3></div>
+        {% if recent_matches %}
+          <table class="grid">
+            <thead>
+              <tr>
+                <th>Opponent</th>
+                <th class="hide-phone">Tournament</th>
+                <th class="hide-phone">Rd</th>
+                <th>Colour</th>
+                <th class="r">Result</th>
+                <th class="r hide-phone">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for match in recent_matches %}
+              <tr>
+                <td>
+                  {% if match.opponent %}
+                    <a href="{% url 'player_profile' match.opponent.pk %}">
+                      {{ match.opponent.user.get_full_name|default:match.opponent.user.username }}
+                    </a>
+                  {% else %}
+                    <span class="muted">bye</span>
+                  {% endif %}
+                  <div class="tiny muted show-phone">
+                    {{ match.tournament.name }}, round {{ match.round.number }}
+                  </div>
+                </td>
+                <td class="hide-phone small">{{ match.tournament.name }}</td>
+                <td class="hide-phone num">{{ match.round.number }}</td>
+                <td class="small">{{ match.colour }}</td>
+                <td class="r">
+                  <span class="tag {% if match.outcome == 'Win' %}tag-open{% elif match.outcome == 'Loss' %}tag-live{% elif match.outcome == 'Draw' %}tag-quiet{% else %}tag-soon{% endif %}">
+                    {{ match.outcome }}
+                  </span>
+                </td>
+                <td class="r hide-phone small num nowrap">{{ match.completed_at|date:"d M Y"|default:"" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">
+            <strong>No games yet</strong>
+            Enter a tournament, or send a challenge to another player.
           </div>
         {% endif %}
       </div>
 
     </div>
   </div>
+
 </div>
 {% endblock %}

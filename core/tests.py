@@ -193,7 +193,6 @@ class HouseRules(TestCase):
         "members/2fa_verify.html",
         "members/admin_stats.html",
         "members/change_password.html",
-        "members/dashboard.html",
         "members/edit_profile.html",
         "members/manage.html",
         "members/profile.html",

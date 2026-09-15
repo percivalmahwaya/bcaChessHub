@@ -78,9 +78,29 @@ def dashboard(request):
         'tournament__association'
     ).order_by('-tournament__start_date')
 
-    unread_qs = Notification.objects.filter(recipient=request.user, is_read=False)
-    unread_qs.update(is_read=True)
-    notifications = unread_qs.order_by('-sent_at')[:5]
+    # Read the rows BEFORE marking them read.
+    #
+    # This used to be:
+    #     unread_qs = Notification.objects.filter(..., is_read=False)
+    #     unread_qs.update(is_read=True)
+    #     notifications = unread_qs.order_by('-sent_at')[:5]
+    #
+    # A queryset is lazy. update() wrote is_read=True to every matching row,
+    # and then the SAME queryset was evaluated for display, filtering on
+    # is_read=False against rows that had just been set True. It always came
+    # back empty.
+    #
+    # So opening your dashboard silently marked every unread notification as
+    # read and showed you none of them. The bell cleared, the panel said "no
+    # new notifications", and a pairing or a payment confirmation you had
+    # never seen was now filed as read. Verified against the database before
+    # fixing.
+    notifications = list(
+        Notification.objects.filter(recipient=request.user, is_read=False)
+        .order_by('-sent_at')[:5]
+    )
+    Notification.objects.filter(
+        pk__in=[n.pk for n in notifications]).update(is_read=True)
 
     coached_players = None
     if member.role == 'coach':
@@ -90,8 +110,25 @@ def dashboard(request):
             .order_by('-rating')
         )
 
+    # Annotate each match from this member's point of view, rather than
+    # branching on colour in the template. dashboard.html used to carry two
+    # near-identical copies of the whole history row, one per colour, which is
+    # how they drift apart.
+    for m in all_matches:
+        playing_white = m.white_player_id == member.pk
+        m.colour = 'White' if playing_white else 'Black'
+        m.opponent = m.black_player if playing_white else m.white_player
+        won = (m.result == 'white_win') if playing_white else (m.result == 'black_win')
+        lost = (m.result == 'black_win') if playing_white else (m.result == 'white_win')
+        forfeited = m.result == ('white_forfeit' if playing_white else 'black_forfeit')
+        m.outcome = ('Win' if won else 'Loss' if lost else 'Draw'
+                     if m.result == 'draw' else 'Forfeit' if forfeited else 'Pending')
+
+    pending_challenges = member.challenges_received.filter(status='pending').count()
+
     return render(request, 'members/dashboard.html', {
         'member': member,
+        'pending_challenges': pending_challenges,
         'stats': {
             'games_played': games_played,
             'wins': wins,
