@@ -210,6 +210,59 @@
         </div>
       </div>
 
+      {% if member.user.lichess %}
+        {% comment %}
+          Lichess ratings, clearly separated from this club's ELO above.
+
+          They are different measurements of different things: one is online
+          blitz against the world, the other is over the board in a hall in
+          Bulawayo. They are never averaged and never compared, and the note
+          at the bottom says so, because somebody will otherwise assume the
+          bigger number is the real one.
+        {% endcomment %}
+        <div class="panel" style="margin-bottom:var(--s-5);">
+          <div class="panel-head">
+            <h3>On Lichess</h3>
+            <a href="{{ member.user.lichess.profile_url }}" target="_blank" rel="noopener">
+              {{ member.user.lichess.username }}
+            </a>
+          </div>
+          <div class="panel-body">
+            {% if member.user.lichess.ratings %}
+              <div class="dl">
+                {% for r in member.user.lichess.ratings %}
+                  <div>
+                    <dt>{{ r.perf }}</dt>
+                    <dd>
+                      <span class="num" style="font-size:var(--t-xl);font-weight:700;">{{ r.rating }}</span>
+                      {% if r.provisional %}
+                        <span class="tiny muted" title="Provisional: too few games for Lichess to be confident">?</span>
+                      {% endif %}
+                      <div class="tiny muted num">{{ r.games }} game{{ r.games|pluralize }}</div>
+                    </dd>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="small muted" style="margin:0;">
+                No rated games on Lichess yet.
+              </p>
+            {% endif %}
+
+            <p class="tiny muted" style="margin:var(--s-4) 0 0;padding-top:var(--s-3);border-top:var(--line);">
+              <span class="num">{{ member.user.lichess.total_games }}</span> games played online,
+              <span class="num">{{ member.user.lichess.wins }}</span> won,
+              <span class="num">{{ member.user.lichess.draws }}</span> drawn,
+              <span class="num">{{ member.user.lichess.losses }}</span> lost.
+              These are Lichess ratings, earned online. The
+              <strong>{{ member.rating }}</strong> above is this club's own
+              rating, from games played over the board. The two are not
+              comparable and are never mixed.
+            </p>
+          </div>
+        </div>
+      {% endif %}
+
       <div class="panel panel-tight">
         <div class="panel-head"><h3>Tournaments</h3></div>
         {% if tournament_rows %}

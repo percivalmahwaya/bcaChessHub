@@ -3,7 +3,9 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User
 from associations.models import Association
-from .models import Member, RatingHistory
+from unittest.mock import patch
+from .models import Member, RatingHistory, LichessAccount
+from . import lichess
 
 
 def make_association():
@@ -159,3 +161,233 @@ class TwoFactorSetupViewTest(TestCase):
         self.client.post(reverse('setup_2fa'), {'action': 'confirm', 'code': '000000'})
         self.member.refresh_from_db()
         self.assertFalse(self.member.totp_enabled)
+
+
+# ---------------------------------------------------------------------------
+# Lichess
+# ---------------------------------------------------------------------------
+
+class LichessExtractTest(TestCase):
+    """Turning a Lichess profile into the fields we store.
+
+    THE TRAP THIS EXISTS FOR: Lichess returns a rating for every format
+    whether or not it has ever been played. An account that has never played
+    rapid comes back as
+
+        rapid: {rating: 2500, games: 0, prov: true}
+
+    2500 is a placeholder, not a rating. Storing it would put a beginner at
+    2500 rapid on a page whose entire job is showing real ratings. Verified
+    against the live API before this was written.
+    """
+
+    def test_a_format_never_played_has_no_rating(self):
+        data = lichess.extract({
+            'id': 'someone', 'username': 'Someone',
+            'perfs': {'rapid': {'rating': 2500, 'games': 0, 'prov': True}},
+        })
+        self.assertIsNone(data['rapid_rating'],
+                          'the 2500 placeholder must never be stored')
+        self.assertEqual(data['rapid_games'], 0)
+
+    def test_a_played_format_keeps_its_rating_and_game_count(self):
+        data = lichess.extract({
+            'id': 'someone', 'username': 'Someone',
+            'perfs': {'blitz': {'rating': 1731, 'games': 11785, 'prov': False}},
+        })
+        self.assertEqual(data['blitz_rating'], 1731)
+        self.assertEqual(data['blitz_games'], 11785)
+        self.assertFalse(data['blitz_provisional'])
+
+    def test_provisional_travels_with_the_rating(self):
+        data = lichess.extract({
+            'id': 'x', 'username': 'X',
+            'perfs': {'rapid': {'rating': 2617, 'games': 434, 'prov': True}},
+        })
+        self.assertEqual(data['rapid_rating'], 2617)
+        self.assertTrue(data['rapid_provisional'],
+                        'a rating shown without its provisional flag is a '
+                        'claim the data does not support')
+
+    def test_missing_sections_do_not_raise(self):
+        """A brand new Lichess account has almost nothing on it."""
+        data = lichess.extract({'id': 'new', 'username': 'New'})
+        self.assertEqual(data['total_games'], 0)
+        self.assertIsNone(data['bullet_rating'])
+
+
+class LichessAccountDisplayTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='p', password='pass1234')
+        self.link = LichessAccount.objects.create(
+            user=self.user, lichess_id='p', username='P',
+            bullet_rating=1774, bullet_games=7483,
+            blitz_rating=1500, blitz_games=12, blitz_provisional=True,
+            rapid_rating=None, rapid_games=0)
+
+    def test_unplayed_formats_are_left_out_entirely(self):
+        perfs = [r['perf'] for r in self.link.ratings()]
+        self.assertEqual(perfs, ['bullet', 'blitz'],
+                         'a format never played should not appear as a dash, '
+                         'which reads as missing data')
+
+    def test_best_rating_ignores_provisional_ones(self):
+        """A 2500 after three games is not somebody's strength."""
+        best = self.link.best_rating
+        self.assertEqual(best['perf'], 'bullet')
+        self.assertEqual(best['rating'], 1774)
+
+    def test_best_rating_is_none_when_everything_is_provisional(self):
+        self.link.bullet_provisional = True
+        self.link.save()
+        self.assertIsNone(self.link.best_rating)
+
+
+class LichessOAuthSecurityTest(TestCase):
+    """The callback decides who somebody is, so each check earns its place."""
+
+    def setUp(self):
+        self.start_url = reverse('lichess_start')
+        self.callback_url = reverse('lichess_callback')
+
+    def test_start_stashes_state_and_verifier_and_redirects_to_lichess(self):
+        response = self.client.get(self.start_url)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response['Location'].startswith('https://lichess.org/oauth'))
+        self.assertIn('code_challenge_method=S256', response['Location'])
+        self.assertIn('lichess_oauth_state', self.client.session)
+        self.assertIn('lichess_oauth_verifier', self.client.session)
+
+    def test_a_callback_with_no_session_is_refused(self):
+        """Somebody pasting a callback URL straight into the browser."""
+        response = self.client.get(self.callback_url, {'code': 'x', 'state': 'y'},
+                                   follow=True)
+        self.assertContains(response, 'expired')
+        self.assertFalse(LichessAccount.objects.exists())
+
+    def test_a_mismatched_state_is_refused(self):
+        """The attack this defends against.
+
+        Without the state check, an attacker completes an OAuth flow into
+        THEIR Lichess account and hands the victim the callback link, silently
+        binding the victim's browser to the attacker's identity.
+        """
+        self.client.get(self.start_url)          # establishes a real state
+        response = self.client.get(
+            self.callback_url, {'code': 'x', 'state': 'not-the-one'}, follow=True)
+        self.assertContains(response, 'did not start here')
+        self.assertFalse(LichessAccount.objects.exists())
+
+    def test_state_and_verifier_are_consumed_so_a_code_cannot_be_replayed(self):
+        self.client.get(self.start_url)
+        self.client.get(self.callback_url, {'code': 'x', 'state': 'wrong'})
+        self.assertNotIn('lichess_oauth_state', self.client.session)
+        self.assertNotIn('lichess_oauth_verifier', self.client.session)
+
+    def test_cancelling_on_lichess_is_not_an_error(self):
+        response = self.client.get(self.callback_url, {'error': 'access_denied'},
+                                   follow=True)
+        self.assertContains(response, 'cancelled')
+
+
+class LichessLinkingTest(TestCase):
+    """Linking, and refusing to move a link between two people."""
+
+    def setUp(self):
+        self.assoc = make_association()
+        self.alice, _ = make_user_and_member('alice', assoc=self.assoc)
+        self.bob, _ = make_user_and_member('bob', assoc=self.assoc)
+        self.profile = {
+            'id': 'shared', 'username': 'Shared',
+            'perfs': {'blitz': {'rating': 1600, 'games': 50, 'prov': False}},
+            'count': {'all': 50, 'win': 25, 'loss': 20, 'draw': 5},
+        }
+
+    def _callback_as(self, user, profile):
+        """Run the callback with the network calls stubbed out."""
+        if user is not None:
+            self.client.force_login(user)
+        self.client.get(reverse('lichess_start'))
+        session = self.client.session
+        state = session['lichess_oauth_state']
+
+        with patch.object(lichess, 'exchange_code', return_value='tok'), \
+             patch.object(lichess, 'whoami', return_value=profile):
+            return self.client.get(reverse('lichess_callback'),
+                                   {'code': 'c', 'state': state}, follow=True)
+
+    def test_linking_to_the_signed_in_account(self):
+        self._callback_as(self.alice, self.profile)
+        link = LichessAccount.objects.get()
+        self.assertEqual(link.user, self.alice)
+        self.assertEqual(link.username, 'Shared')
+        self.assertEqual(link.blitz_rating, 1600)
+        self.assertIsNotNone(link.synced_at)
+
+    def test_an_already_linked_account_is_not_moved_to_somebody_else(self):
+        """The takeover this refuses.
+
+        If Bob signs in with a Lichess account already linked to Alice, moving
+        the link would hand whoever controls that Lichess account control of
+        Alice's member profile here.
+        """
+        self._callback_as(self.alice, self.profile)
+        self.client.logout()
+
+        response = self._callback_as(self.bob, self.profile)
+        self.assertContains(response, 'already linked')
+
+        link = LichessAccount.objects.get()
+        self.assertEqual(link.user, self.alice,
+                         'the link must stay with whoever had it')
+
+    def test_signing_in_again_with_a_linked_account_logs_that_person_in(self):
+        self._callback_as(self.alice, self.profile)
+        self.client.logout()
+
+        self._callback_as(None, self.profile)
+        self.assertEqual(int(self.client.session['_auth_user_id']),
+                         self.alice.pk)
+
+    def test_a_brand_new_person_gets_a_login_and_is_sent_to_choose_a_club(self):
+        response = self._callback_as(None, self.profile)
+        user = User.objects.get(username='Shared')
+        self.assertFalse(user.has_usable_password(),
+                         'there is no password, so there is none to guess')
+        self.assertFalse(hasattr(user, 'member'),
+                         'a club cannot be guessed, so no Member yet')
+        self.assertContains(response, 'choose your club')
+
+    def test_a_clashing_username_is_suffixed_not_merged(self):
+        """Lichess usernames are unique on Lichess, not here.
+
+        Attaching to an existing account with the same name would hand a
+        stranger somebody else's profile.
+        """
+        User.objects.create_user(username='Shared', password='pass1234')
+        self._callback_as(None, self.profile)
+        self.assertTrue(User.objects.filter(username='Shared2').exists())
+
+
+class LichessUnlinkTest(TestCase):
+    def setUp(self):
+        self.assoc = make_association()
+        self.member, _ = make_user_and_member('carol', assoc=self.assoc)
+        self.link = LichessAccount.objects.create(
+            user=self.member, lichess_id='carol', username='Carol')
+
+    def test_unlinking_works_when_a_password_exists(self):
+        self.client.force_login(self.member)
+        self.client.post(reverse('lichess_unlink'), follow=True)
+        self.assertFalse(LichessAccount.objects.exists())
+
+    def test_unlinking_is_refused_when_lichess_is_the_only_way_in(self):
+        """Otherwise somebody locks themselves out of an account that has no
+        password to reset."""
+        self.member.set_unusable_password()
+        self.member.save()
+        self.client.force_login(self.member)
+
+        response = self.client.post(reverse('lichess_unlink'), follow=True)
+        self.assertContains(response, 'only way to sign in')
+        self.assertTrue(LichessAccount.objects.exists())

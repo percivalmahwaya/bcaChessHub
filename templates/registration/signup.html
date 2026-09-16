@@ -25,6 +25,18 @@
     A player account gets you a rating, tournament entry and challenges.
   </p>
 
+  {% comment %}
+    Offered before the long form, not after it. Somebody who would rather sign
+    in with Lichess should not have to scroll past eight fields to find that
+    out.
+  {% endcomment %}
+  <a class="btn btn-quiet" style="width:100%;" href="{% url 'lichess_start' %}">
+    Continue with Lichess instead
+  </a>
+  <p class="tiny muted" style="margin:var(--s-2) 0 var(--s-5);text-align:center;">
+    Brings your bullet, blitz and rapid ratings across, and skips this form.
+  </p>
+
   {% if form.non_field_errors %}
     <div class="note note-error" style="margin-bottom:var(--s-4);">
       {{ form.non_field_errors }}

@@ -45,6 +45,28 @@
     <button type="submit" class="btn btn-primary" style="width:100%;">Log in</button>
   </form>
 
+  {% comment %}
+    Sign in with Lichess.
+
+    Placed BELOW the password form rather than above it, even though it is the
+    easier route, because the people with existing accounts here are the ones
+    who most need the form they already know. It will earn the top spot once
+    most members arrive through it.
+  {% endcomment %}
+  <div style="display:flex;align-items:center;gap:var(--s-3);margin:var(--s-5) 0;">
+    <span style="flex:1;height:1px;background:var(--bch-sand);"></span>
+    <span class="tiny muted">or</span>
+    <span style="flex:1;height:1px;background:var(--bch-sand);"></span>
+  </div>
+
+  <a class="btn btn-quiet" style="width:100%;"
+     href="{% url 'lichess_start' %}{% if next %}?next={{ next|urlencode }}{% endif %}">
+    Continue with Lichess
+  </a>
+  <p class="tiny muted" style="margin-top:var(--s-2);text-align:center;">
+    Brings your bullet, blitz and rapid ratings across. No password needed.
+  </p>
+
   <p class="small muted" style="margin-top:var(--s-5);">
     No account yet? <a href="{% url 'signup' %}">Create one</a>. It is free.
   </p>

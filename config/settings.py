@@ -192,6 +192,19 @@ if not DEBUG and EMAIL_BACKEND.endswith('smtp.EmailBackend'):
         'Set EMAIL_BACKEND=anymail.backends.brevo.EmailBackend and BREVO_API_KEY.'
     )
 
+# ── Lichess ───────────────────────────────────────────────────────────────────
+#
+# Lichess implements OAuth2 with PKCE for public clients. There is NO developer
+# portal, NO application to register and NO client secret: the client_id is
+# simply a string that identifies us, conventionally a URL. That is why this is
+# a plain setting and not an environment secret.
+#
+# The redirect URI is not configured at all. It is built from the incoming
+# request, so it is correct in development and in production without anybody
+# remembering to change it, and Lichess requires no allow-list.
+LICHESS_CLIENT_ID = config(
+    'LICHESS_CLIENT_ID', default='https://bulawayochesshub.local')
+
 # ── Site / Paynow ─────────────────────────────────────────────────────────────
 SITE_BASE_URL = config('SITE_BASE_URL', default='http://127.0.0.1:8000')
 PAYNOW_INTEGRATION_ID = config('PAYNOW_INTEGRATION_ID', default='SANDBOX_ID')

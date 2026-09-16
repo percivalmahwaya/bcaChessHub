@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block title %}Choose your club{% endblock %}
+
+{% comment %}
+  The one thing Lichess cannot tell us.
+
+  A Lichess account knows a player's ratings and their whole game history, but
+  it has no idea which club in Bulawayo they turn up to on a Saturday, and
+  guessing would put somebody in a club they have never been to. So the login
+  is created at sign in and this single question is asked once.
+
+  Deliberately one field and one button. Anything more here is a form standing
+  between somebody and the site they already agreed to join.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
+
+{% block content %}
+<div class="wrap page" style="max-width:28rem;">
+
+  <h1 class="page-title">One more thing</h1>
+  <p class="page-sub">
+    {% if lichess %}Signed in as <strong>{{ lichess.username }}</strong> on Lichess.
+    {% endif %}
+    Which club do you play with?
+  </p>
+
+  {% if lichess and lichess.ratings %}
+    <div class="panel" style="margin-bottom:var(--s-5);">
+      <div class="panel-head"><h3>Brought over from Lichess</h3></div>
+      <div class="panel-body">
+        <div class="dl">
+          {% for r in lichess.ratings %}
+            <div>
+              <dt>{{ r.perf }}</dt>
+              <dd class="num" style="font-weight:700;">
+                {{ r.rating }}{% if r.provisional %}<span class="tiny muted">?</span>{% endif %}
+              </dd>
+            </div>
+          {% endfor %}
+        </div>
+        <p class="tiny muted" style="margin:var(--s-4) 0 0;">
+          These stay your Lichess ratings. This club keeps its own separate
+          rating for games played over the board, which starts at 1200.
+        </p>
+      </div>
+    </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="field">
+      <label class="lbl" for="id_association">Club</label>
+      <select name="association" id="id_association" required autofocus>
+        <option value="">Choose your club</option>
+        {% for a in associations %}
+          <option value="{{ a.pk }}">{{ a.name }} ({{ a.city }})</option>
+        {% endfor %}
+      </select>
+      <span class="help">
+        Not sure? Pick the one nearest you. A club administrator can move you.
+      </span>
+    </div>
+    <button type="submit" class="btn btn-primary" style="width:100%;">Finish</button>
+  </form>
+
+</div>
+{% endblock %}
