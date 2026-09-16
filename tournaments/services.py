@@ -42,28 +42,64 @@ def create_next_round(tournament):
 
     round_obj = Round.objects.create(tournament=tournament, number=next_number)
 
-    pairings, bye_player, errors = generate_pairings(tournament, next_number)
+    # One Round per tournament, pairings per section.
+    #
+    # A section is a separate competition sharing the hall and the clock, so
+    # round three starts at the same moment for everybody, but Open players
+    # are only ever paired against Open players. A tournament with no sections
+    # pairs exactly as it always did: the loop runs once with section None.
+    #
+    # Board numbers continue across sections rather than restarting, because
+    # a board is a physical table with a number taped to it and two games
+    # cannot both be at board 1.
+    sections = list(tournament.sections.all()) or [None]
 
+    all_pairings = []
+    byes = []
+    errors = []
     matches = []
-    for p in pairings:
-        matches.append(Match(
-            tournament=tournament,
-            round=round_obj,
-            white_player=p['white'],
-            black_player=p['black'],
-            board_number=p['board_number'],
-        ))
+    next_board = 1
 
-    # Bye: stored as a match with no black player and auto-win for white
-    if bye_player:
-        matches.append(Match(
-            tournament=tournament,
-            round=round_obj,
-            white_player=bye_player,
-            black_player=None,
-            result='white_win',
-            board_number=None,
-        ))
+    for section in sections:
+        pairings, bye_player, section_errors = generate_pairings(
+            tournament, next_number, section=section, first_board=next_board)
+
+        for p in pairings:
+            matches.append(Match(
+                tournament=tournament,
+                round=round_obj,
+                section=section,
+                white_player=p['white'],
+                black_player=p['black'],
+                board_number=p['board_number'],
+            ))
+            next_board = max(next_board, p['board_number'] + 1)
+
+        # A bye is per section. With three sections an odd turnout in each
+        # means three byes, which is correct: each is a competition of its own.
+        if bye_player:
+            matches.append(Match(
+                tournament=tournament,
+                round=round_obj,
+                section=section,
+                white_player=bye_player,
+                black_player=None,
+                result='white_win',
+                board_number=None,
+            ))
+            byes.append(bye_player)
+
+        all_pairings.extend(pairings)
+        # Name the section on every warning, or a director reading three
+        # sections' worth of errors cannot tell which hall half they concern.
+        prefix = f'[{section.name}] ' if section else ''
+        errors.extend(prefix + e for e in section_errors)
+
+    pairings = all_pairings
+    # Kept singular for callers that predate sections. With sections there can
+    # be more than one, so bye_players carries the full list.
+    bye_player = byes[0] if byes else None
+    bye_players = byes
 
     Match.objects.bulk_create(matches)
 
@@ -75,7 +111,7 @@ def create_next_round(tournament):
     from notifications.email import send_round_pairings
     send_round_pairings(round_obj)
 
-    return round_obj, pairings, bye_player, errors
+    return round_obj, pairings, bye_player, errors, bye_players
 
 
 @transaction.atomic
@@ -109,9 +145,14 @@ def complete_round(round_obj):
     return round_obj
 
 
-def compute_crosstable(tournament):
+def compute_crosstable(tournament, section=None):
     """
-    Return crosstable data for all confirmed players, ordered by current standings rank.
+    Crosstable for confirmed players, ordered by current standings rank.
+
+    Pass `section` for one section's grid. Without it, a sectioned tournament
+    would draw an N by N table in which most cells can never be filled,
+    because players in different sections never meet. That is not a sparse
+    crosstable, it is three crosstables laid on top of each other.
 
     Returns a dict:
       {
@@ -137,7 +178,7 @@ def compute_crosstable(tournament):
     """
     from matches.models import Match
 
-    standings = compute_standings(tournament)
+    standings = compute_standings(tournament, section=section)
     if not standings:
         return None
 
@@ -186,16 +227,25 @@ def compute_crosstable(tournament):
     return {'players': players, 'rows': rows}
 
 
-def compute_standings(tournament):
+def compute_standings(tournament, section=None):
     """
-    Return a list of standing dicts for all confirmed players in `tournament`,
-    sorted by score (desc), Buchholz tiebreaker (desc), then ELO (desc).
+    Standings for confirmed players, by score, then Buchholz, then ELO.
 
-    Each entry: player, score, wins, draws, losses, byes, games_played, buchholz, rank
+    Pass `section` for one section's table. A section is a separate
+    competition, so Open, Ladies and Developmental each have their own rank 1
+    and their own prizes, and a single mixed table would be meaningless to all
+    three. Omitting it returns every confirmed player, which is what a
+    tournament with no sections wants and what every caller wanted before
+    sections existed.
+
+    Each entry: player, score, wins, draws, losses, byes, games_played,
+    buchholz, rank
     """
     from matches.models import Match
 
     confirmed = tournament.registrations.filter(status='confirmed').select_related('player__user')
+    if section is not None:
+        confirmed = confirmed.filter(section=section)
     players = [reg.player for reg in confirmed]
     if not players:
         return []

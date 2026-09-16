@@ -89,21 +89,40 @@ def _assign_colors(p1_data, p2_data):
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def generate_pairings(tournament, round_number):
+def generate_pairings(tournament, round_number, section=None, first_board=1):
     """
     Generate Swiss pairings for `round_number` in `tournament`.
 
+    If `section` is given, only players entered in that section are paired.
+    A section is a separate competition sharing the hall and the round
+    schedule, so nobody in Open is ever paired against a child in
+    Developmental, and each section gets its own bye.
+
+    `first_board` lets a caller continue board numbering across sections.
+    Two players sitting at "board 1" in the same room is a real problem in a
+    hall where boards are physical tables with numbers taped to them.
+
+    The history helpers above deliberately query the whole tournament rather
+    than the section. That is not a bug: a player only ever plays inside their
+    own section, so their tournament history IS their section history, and
+    keeping the queries simple means a player moved between sections still has
+    their real opponents and colours respected.
+
     Returns:
-        pairings  — list of dicts: {white, black, board_number}
-        bye_player — Member who receives a bye, or None
-        errors    — list of warning strings (e.g. forced rematches)
+        pairings   list of dicts: {white, black, board_number}
+        bye_player Member who receives a bye, or None
+        errors     list of warning strings, for example forced rematches
     """
     registrations = TournamentRegistration.objects.filter(
         tournament=tournament, status='confirmed'
     ).select_related('player__user')
 
+    if section is not None:
+        registrations = registrations.filter(section=section)
+
     if not registrations.exists():
-        return [], None, ['No confirmed players in this tournament.']
+        where = f'the {section.name} section' if section else 'this tournament'
+        return [], None, [f'No confirmed players in {where}.']
 
     # Build player data list
     players = []
@@ -146,7 +165,7 @@ def generate_pairings(tournament, round_number):
 
     paired = set()
     pairings = []
-    board = 1
+    board = first_board
 
     for i, p1 in enumerate(top_half):
         if i in paired:

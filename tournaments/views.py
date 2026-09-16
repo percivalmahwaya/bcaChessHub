@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_POST
-from .models import Tournament, TournamentRegistration, Round
+from .models import Tournament, TournamentRegistration, Round, Section
 from .forms import TournamentForm
 from matches.models import Match
 from notifications.email import (
@@ -122,16 +122,36 @@ def tournament_register(request, pk):
     return redirect('tournament_detail', pk=pk)
 
 
+def _resolve_section(request, tournament):
+    """The section a viewer is looking at, from ?section=<pk>.
+
+    Returns (section, sections). `section` is None for "everything", which is
+    both the whole tournament when it has no sections and the deliberate
+    all-sections view when it does.
+
+    An unknown or foreign pk falls back to None rather than 404ing: a stale
+    link from last season should show the tournament, not an error page.
+    """
+    sections = list(tournament.sections.all())
+    raw = request.GET.get('section')
+    if not raw or not sections:
+        return None, sections
+    return next((s for s in sections if str(s.pk) == str(raw)), None), sections
+
+
 def tournament_standings(request, pk):
     """Public standings table for a tournament."""
     tournament = get_object_or_404(Tournament.objects.select_related('association'), pk=pk)
     from .services import compute_standings
-    standings = compute_standings(tournament)
+    section, sections = _resolve_section(request, tournament)
+    standings = compute_standings(tournament, section=section)
     rounds = tournament.rounds.order_by('number')
     return render(request, 'tournaments/standings.html', {
         'tournament': tournament,
         'standings': standings,
         'rounds': rounds,
+        'section': section,
+        'sections': sections,
     })
 
 
@@ -139,12 +159,22 @@ def tournament_crosstable(request, pk):
     """Public crosstable view for a tournament."""
     tournament = get_object_or_404(Tournament.objects.select_related('association'), pk=pk)
     from .services import compute_crosstable
-    crosstable = compute_crosstable(tournament)
+    section, sections = _resolve_section(request, tournament)
+
+    # With sections and none chosen, default to the first rather than drawing
+    # an N by N grid in which most cells can never be filled. That is not a
+    # sparse crosstable, it is three crosstables laid on top of each other.
+    if sections and section is None:
+        section = sections[0]
+
+    crosstable = compute_crosstable(tournament, section=section)
     rounds = tournament.rounds.order_by('number')
     return render(request, 'tournaments/crosstable.html', {
         'tournament': tournament,
         'crosstable': crosstable,
         'rounds': rounds,
+        'section': section,
+        'sections': sections,
     })
 
 
@@ -159,6 +189,9 @@ def tournament_round(request, pk, round_number):
         .order_by('board_number')
     )
     rounds = tournament.rounds.order_by('number')
+    section, sections = _resolve_section(request, tournament)
+    if section is not None:
+        matches = matches.filter(section=section)
     viewer = (request.user.member
               if request.user.is_authenticated and hasattr(request.user, 'member')
               else None)
@@ -187,6 +220,8 @@ def tournament_round(request, pk, round_number):
         'matches': matches,
         'rounds': rounds,
         'viewer_member': viewer,
+        'section': section,
+        'sections': sections,
     })
 
 
@@ -292,10 +327,15 @@ def tournament_manage(request, pk):
         elif action == 'start_round':
             from .services import create_next_round
             try:
-                round_obj, pairings, bye_player, errors = create_next_round(tournament)
-                messages.success(request, f'Round {round_obj.number} started — {len(pairings)} board(s).')
-                if bye_player:
-                    messages.info(request, f'{bye_player} receives a full-point bye.')
+                round_obj, pairings, bye_player, errors, bye_players = create_next_round(tournament)
+                messages.success(
+                    request,
+                    f'Round {round_obj.number} started, {len(pairings)} board(s).')
+                # A bye is per section, so a three-section event with an odd
+                # turnout in each produces three of them. Naming only the first
+                # would leave two players wondering why they have no game.
+                for b in bye_players:
+                    messages.info(request, f'{b} receives a full-point bye.')
                 for err in errors:
                     messages.warning(request, err)
                 try:
@@ -317,6 +357,67 @@ def tournament_manage(request, pk):
                     pass
             except ValueError as exc:
                 messages.error(request, str(exc))
+
+        elif action == 'add_section':
+            name = (request.POST.get('section_name') or '').strip()
+            if not name:
+                messages.error(request, 'A section needs a name.')
+            elif tournament.rounds.exists():
+                # Adding a section mid-event would leave its players with no
+                # games in the rounds already paired, and a standings table
+                # that cannot be compared with anybody else's.
+                messages.error(
+                    request,
+                    'Rounds have already been paired, so sections can no '
+                    'longer be changed. Sections split the field before play '
+                    'begins.')
+            elif tournament.sections.filter(name__iexact=name).exists():
+                messages.error(request, f'There is already a "{name}" section.')
+            else:
+                Section.objects.create(
+                    tournament=tournament, name=name,
+                    eligibility=(request.POST.get('eligibility') or '').strip(),
+                    order=tournament.sections.count() + 1)
+                messages.success(request, f'Section "{name}" added.')
+
+        elif action == 'delete_section':
+            section = get_object_or_404(
+                Section, pk=request.POST.get('section_pk'), tournament=tournament)
+            if tournament.rounds.exists():
+                messages.error(
+                    request, 'Rounds have been paired. Sections can no longer '
+                             'be changed.')
+            else:
+                # SET_NULL on the registration, so entries survive and simply
+                # fall back to having no section. Deleting a section must
+                # never delete the people in it.
+                name = section.name
+                section.delete()
+                messages.success(
+                    request,
+                    f'Section "{name}" removed. Its players are still entered, '
+                    'with no section.')
+
+        elif action == 'assign_sections':
+            if tournament.rounds.exists():
+                messages.error(
+                    request, 'Rounds have been paired. Players can no longer '
+                             'be moved between sections.')
+            else:
+                moved = 0
+                for reg in tournament.registrations.all():
+                    raw = request.POST.get(f'section_{reg.pk}')
+                    new_section = None
+                    if raw:
+                        new_section = tournament.sections.filter(pk=raw).first()
+                    if reg.section_id != (new_section.pk if new_section else None):
+                        reg.section = new_section
+                        reg.save(update_fields=['section'])
+                        moved += 1
+                if moved:
+                    messages.success(request, f'{moved} player(s) reassigned.')
+                else:
+                    messages.info(request, 'No changes to make.')
 
         return redirect('tournament_manage', pk=pk)
 
@@ -369,6 +470,11 @@ def tournament_manage(request, pk):
         'next_round_number': completed_rounds + 1,
         'no_rounds_yet': no_rounds_yet,
         'confirmed_seeding': confirmed_seeding,
+        'sections': list(tournament.sections.all()),
+        # Sections split the field BEFORE play. Once a round is paired,
+        # moving somebody would leave them with no games in the rounds already
+        # played and a table nobody can be compared against.
+        'sections_locked': tournament.rounds.exists(),
     })
 
 

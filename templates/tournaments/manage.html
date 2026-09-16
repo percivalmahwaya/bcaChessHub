@@ -252,6 +252,113 @@
         {% endif %}
       </div>
 
+      {% comment %}
+        Sections: Open, Ladies, Developmental.
+
+        A section is a separate competition sharing the hall and the round
+        schedule. Players enter one, pairings never cross, and each section
+        gets its own standings, crosstable and bye.
+
+        Everything here locks the moment the first round is paired. Moving
+        somebody after that would leave them with no games in the rounds
+        already played, and a standings table nobody can be compared against.
+      {% endcomment %}
+      <div class="panel" style="margin-bottom:var(--s-5);">
+        <div class="panel-head">
+          <h3>Sections</h3>
+          {% if sections_locked %}
+            <span class="tag tag-quiet">Locked, rounds have started</span>
+          {% endif %}
+        </div>
+        <div class="panel-body">
+
+          {% if not sections %}
+            <p class="small muted" style="margin:0 0 var(--s-4);">
+              This tournament runs as a single field. Add sections if you are
+              splitting the hall into Open, Ladies and Developmental, and each
+              will be paired and scored on its own.
+            </p>
+          {% else %}
+            <table class="grid" style="margin-bottom:var(--s-4);">
+              <tbody>
+                {% for s in sections %}
+                <tr>
+                  <td>
+                    <strong>{{ s.name }}</strong>
+                    {% if s.eligibility %}
+                      <div class="tiny muted">{{ s.eligibility }}</div>
+                    {% endif %}
+                  </td>
+                  <td class="r num">{{ s.player_count }} entered</td>
+                  <td class="r" style="width:5rem;">
+                    {% if not sections_locked %}
+                      <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete_section">
+                        <input type="hidden" name="section_pk" value="{{ s.pk }}">
+                        <button class="btn btn-quiet btn-sm">Remove</button>
+                      </form>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% endif %}
+
+          {% if not sections_locked %}
+            <form method="post" class="inline-form" style="margin-bottom:var(--s-5);">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="add_section">
+              <div class="field">
+                <label class="lbl" for="id_section_name">New section</label>
+                <input type="text" name="section_name" id="id_section_name"
+                       maxlength="60" placeholder="Open" required>
+              </div>
+              <div class="field">
+                <label class="lbl" for="id_eligibility">Who can enter, optional</label>
+                <input type="text" name="eligibility" id="id_eligibility"
+                       maxlength="200" placeholder="Under 14 on 1 January">
+              </div>
+              <div class="field narrow">
+                <button type="submit" class="btn btn-primary btn-sm">Add</button>
+              </div>
+            </form>
+
+            {% if sections and registrations %}
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="assign_sections">
+                <p class="lbl" style="margin-bottom:var(--s-2);">Who plays where</p>
+                <table class="grid" style="margin-bottom:var(--s-4);">
+                  <tbody>
+                    {% for reg in registrations %}
+                    <tr>
+                      <td>
+                        {{ reg.player.user.get_full_name|default:reg.player.user.username }}
+                        <span class="tiny muted num">({{ reg.player.rating }})</span>
+                      </td>
+                      <td class="r" style="width:12rem;">
+                        <select name="section_{{ reg.pk }}">
+                          <option value="">No section</option>
+                          {% for s in sections %}
+                            <option value="{{ s.pk }}"
+                              {% if reg.section_id == s.pk %}selected{% endif %}>{{ s.name }}</option>
+                          {% endfor %}
+                        </select>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+                <button type="submit" class="btn btn-primary btn-sm">Save who plays where</button>
+              </form>
+            {% endif %}
+          {% endif %}
+
+        </div>
+      </div>
+
       <!-- ⑤ Seeding (only before round 1) -->
       {% if no_rounds_yet and confirmed_seeding %}
       <div class="card p-4 mb-4">

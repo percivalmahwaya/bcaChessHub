@@ -15,6 +15,16 @@ class Match(models.Model):
 
     tournament = models.ForeignKey(Tournament, on_delete=models.CASCADE, related_name='matches')
     round = models.ForeignKey(Round, on_delete=models.CASCADE, related_name='matches')
+    # Which section this game belongs to, denormalised from the pairing.
+    #
+    # It could be looked up through the white player's registration, but a
+    # game is a fact about the day it was played: if a director later moves a
+    # player between sections, every game they have already played must stay
+    # in the section it was played in, or the standings and the crosstable
+    # both rewrite history. Null on every tournament that uses no sections.
+    section = models.ForeignKey(
+        'tournaments.Section', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='matches')
     white_player = models.ForeignKey(Member, on_delete=models.CASCADE, related_name='matches_as_white')
     black_player = models.ForeignKey(Member, on_delete=models.CASCADE, related_name='matches_as_black', null=True, blank=True)
     result = models.CharField(max_length=20, choices=RESULT_CHOICES, default='pending')

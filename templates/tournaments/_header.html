@@ -39,3 +39,23 @@
     </a>
   {% endfor %}
 </nav>
+
+{% if sections %}
+  {% comment %}
+    Section tabs, shown only when a tournament actually has sections. A
+    section is a separate competition, so Open, Ladies and Developmental each
+    have their own standings, their own crosstable and their own rank 1.
+    "Everyone" is kept for standings, where a combined table is at least
+    meaningful, and the crosstable view picks a section by default because a
+    combined grid there is three grids laid on top of each other.
+  {% endcomment %}
+  <nav class="tabs small" style="margin-top:calc(0px - var(--s-3));">
+    <a href="?" {% if not section %}class="on"{% endif %}>Everyone</a>
+    {% for s in sections %}
+      <a href="?section={{ s.pk }}" {% if section and section.pk == s.pk %}class="on"{% endif %}>
+        {{ s.name }}
+        <span class="tiny muted num">{{ s.player_count }}</span>
+      </a>
+    {% endfor %}
+  </nav>
+{% endif %}

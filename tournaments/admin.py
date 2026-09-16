@@ -20,13 +20,14 @@ class RegistrationInline(admin.TabularInline):
 def action_generate_next_round(modeladmin, request, queryset):
     for tournament in queryset:
         try:
-            round_obj, pairings, bye_player, errors = create_next_round(tournament)
+            round_obj, pairings, bye_player, errors, bye_players = create_next_round(tournament)
             msg = (
-                f'{tournament.name}: Round {round_obj.number} generated — '
+                f'{tournament.name}: Round {round_obj.number} generated, '
                 f'{len(pairings)} match(es).'
             )
-            if bye_player:
-                msg += f' Bye: {bye_player}.'
+            # One bye per section, so there can be several.
+            if bye_players:
+                msg += f' Bye: {", ".join(str(b) for b in bye_players)}.'
             if errors:
                 msg += f' Warnings: {"; ".join(errors)}'
             messages.success(request, msg)
