@@ -1,169 +1,144 @@
 {% extends 'base.html' %}
-{% block title %}Admin Stats — ChessHub{% endblock %}
+
+{% block title %}Statistics{% endblock %}
+
+{% comment %}
+  An administrator opens this to answer one of three questions: is anybody
+  joining, is anybody paying, and is anything waiting on me. So the page is
+  ordered by those questions rather than by model, and the things that need
+  action are the only things allowed to carry colour.
+
+  FIXED IN THE MIGRATION:
+
+  1. THE INACTIVE COUNT WAS ALWAYS BLANK. It was
+     {{ member_stats.total|add:"-"|add:member_stats.active }}, which is not
+     subtraction. Django's `add` coerces both sides to int, fails on "-",
+     falls back to concatenation, fails again, and yields the empty string.
+     Verified by rendering it. Computed in the view now, which is where
+     arithmetic belongs and why the bug could happen at all. Exactly the same
+     idiom made every tournament's "spots left" blank.
+
+  2. INVISIBLE TABLE HEADER, same as the members page: white text on
+     background:var(--chess-dark), a variable deleted in the redesign, so the
+     background resolved to transparent on a white card.
+
+  3. --chess-gold on all five card headings and --chess-accent on six figures
+     were equally dead, and badge-status-* was never defined in the new
+     stylesheet, so every status pill rendered unstyled.
+
+  Eleven emoji removed. They were section markers, which is the one job a
+  heading already does.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4 mb-5">
+<div class="wrap page">
 
-  <!-- Header -->
-  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-4">
+  <div class="between" style="margin-bottom:var(--s-5);">
     <div>
-      <h3 class="fw-bold mb-0">📊 Association Stats</h3>
-      <p class="text-muted small mb-0">
-        {% if is_staff %}All associations — site-wide view{% else %}{{ assoc.name }}{% endif %}
+      <p class="tiny muted" style="margin:0;"><a href="{% url 'dashboard' %}">Dashboard</a></p>
+      <h1 class="page-title">Statistics</h1>
+      <p class="page-sub" style="margin:0;">
+        {% if is_staff %}Every club, site wide{% else %}{{ assoc.name }}{% endif %}
       </p>
     </div>
-    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm">← Dashboard</a>
   </div>
 
-  <!-- ── Stat cards row 1: Members + Tournaments ──────────── -->
-  <div class="row g-3 mb-3">
-
-    <!-- Members -->
-    <div class="col-12 col-md-6">
-      <div class="card p-4 h-100">
-        <h6 class="fw-bold mb-3" style="color:var(--chess-gold);">👥 Members</h6>
-        <div class="row g-2 text-center">
-          <div class="col-4">
-            <div class="fw-bold fs-3">{{ member_stats.total }}</div>
-            <div class="text-muted" style="font-size:0.75rem;">Total</div>
-          </div>
-          <div class="col-4">
-            <div class="fw-bold fs-3 text-success">{{ member_stats.active }}</div>
-            <div class="text-muted" style="font-size:0.75rem;">Active</div>
-          </div>
-          <div class="col-4">
-            <div class="fw-bold fs-3" style="color:var(--chess-accent);">{{ member_stats.players }}</div>
-            <div class="text-muted" style="font-size:0.75rem;">Players</div>
-          </div>
-        </div>
-        <hr class="my-3">
-        <div class="d-flex justify-content-around text-center">
-          <div>
-            <div class="fw-semibold text-warning">{{ member_stats.coaches }}</div>
-            <div class="text-muted" style="font-size:0.72rem;">Coaches</div>
-          </div>
-          <div>
-            <div class="fw-semibold text-info">{{ member_stats.admins }}</div>
-            <div class="text-muted" style="font-size:0.72rem;">Admins</div>
-          </div>
-          <div>
-            <div class="fw-semibold text-secondary">{{ member_stats.total|add:"-"|add:member_stats.active }}</div>
-            <div class="text-muted" style="font-size:0.72rem;">Inactive</div>
-          </div>
-        </div>
-      </div>
+  {# ------------------------------------------------- anything waiting? #}
+  {% comment %}
+    Deliberately first and deliberately the only coloured thing on the page.
+    A dashboard where everything is a bright card is a dashboard where an
+    administrator stops noticing the one row that needed them.
+  {% endcomment %}
+  {% if reg_stats.pending or match_stats.pending or payment_stats.pending %}
+    <div class="note note-warning" style="margin-bottom:var(--s-5);">
+      <strong>Waiting on you.</strong>
+      {% if reg_stats.pending %}
+        <span class="num">{{ reg_stats.pending }}</span>
+        registration{{ reg_stats.pending|pluralize }} unconfirmed.
+      {% endif %}
+      {% if match_stats.pending %}
+        <span class="num">{{ match_stats.pending }}</span>
+        game{{ match_stats.pending|pluralize }} without a result.
+      {% endif %}
+      {% if payment_stats.pending %}
+        <span class="num">{{ payment_stats.pending }}</span>
+        payment{{ payment_stats.pending|pluralize }} not yet cleared.
+      {% endif %}
+      <a href="{% url 'tournament_list' %}">Open tournaments</a>
     </div>
+  {% endif %}
 
-    <!-- Tournaments -->
-    <div class="col-12 col-md-6">
-      <div class="card p-4 h-100">
-        <h6 class="fw-bold mb-3" style="color:var(--chess-gold);">🏆 Tournaments</h6>
-        <div class="row g-2 text-center">
-          <div class="col-4">
-            <div class="fw-bold fs-3">{{ tournament_stats.total }}</div>
-            <div class="text-muted" style="font-size:0.75rem;">Total</div>
-          </div>
-          <div class="col-4">
-            <div class="fw-bold fs-3 text-primary">{{ tournament_stats.active }}</div>
-            <div class="text-muted" style="font-size:0.75rem;">Active</div>
-          </div>
-          <div class="col-4">
-            <div class="fw-bold fs-3 text-secondary">{{ tournament_stats.completed }}</div>
-            <div class="text-muted" style="font-size:0.75rem;">Completed</div>
-          </div>
-        </div>
-        <hr class="my-3">
-        <div class="d-flex justify-content-around text-center">
-          <div>
-            <div class="fw-semibold text-success">{{ tournament_stats.open }}</div>
-            <div class="text-muted" style="font-size:0.72rem;">Open reg.</div>
-          </div>
-          <div>
-            <div class="fw-semibold" style="color:var(--chess-accent);">{{ tournament_stats.in_progress }}</div>
-            <div class="text-muted" style="font-size:0.72rem;">In progress</div>
-          </div>
-          <div>
-            <div class="fw-semibold text-muted">{{ tournament_stats.upcoming }}</div>
-            <div class="text-muted" style="font-size:0.72rem;">Upcoming</div>
-          </div>
-        </div>
-      </div>
+  {# --------------------------------------------------------- headlines #}
+  <div class="stats" style="margin-bottom:var(--s-5);">
+    <div class="stat stat-key">
+      <span class="stat-n">{{ member_stats.active }}</span>
+      <span class="stat-l">Active members</span>
+      <span class="stat-sub">
+        {{ member_stats.total }} in total, {{ member_stats.inactive }} inactive
+      </span>
     </div>
-
+    <div class="stat stat-key">
+      <span class="stat-n">{{ payment_stats.revenue_currency }} {{ payment_stats.revenue|floatformat:2 }}</span>
+      <span class="stat-l">Collected</span>
+      <span class="stat-sub">
+        across {{ payment_stats.completed }} cleared payment{{ payment_stats.completed|pluralize }}
+      </span>
+    </div>
+    <div class="stat">
+      <span class="stat-n">{{ tournament_stats.active }}</span>
+      <span class="stat-l">Live tournaments</span>
+      <span class="stat-sub">
+        {{ tournament_stats.in_progress }} in progress, {{ tournament_stats.open }} taking entries
+      </span>
+    </div>
+    <div class="stat">
+      <span class="stat-n">{{ match_stats.total }}</span>
+      <span class="stat-l">Games played</span>
+      <span class="stat-sub">rated and recorded</span>
+    </div>
   </div>
 
-  <!-- ── Stat cards row 2: Registrations + Payments + Matches ─ -->
-  <div class="row g-3 mb-4">
+  {# ------------------------------------------------------- the breakdown #}
+  <div class="row" style="margin-bottom:var(--s-5);">
 
-    <!-- Registrations -->
-    <div class="col-12 col-sm-6 col-lg-4">
-      <div class="card p-4 h-100">
-        <h6 class="fw-bold mb-3" style="color:var(--chess-gold);">📋 Registrations</h6>
-        <div class="d-flex flex-column gap-2">
-          <div class="d-flex justify-content-between align-items-center">
-            <span class="text-muted small">Total</span>
-            <span class="fw-bold fs-5">{{ reg_stats.total }}</span>
-          </div>
-          <div class="d-flex justify-content-between align-items-center">
-            <span class="text-muted small">Confirmed</span>
-            <span class="fw-semibold text-success">{{ reg_stats.confirmed }}</span>
-          </div>
-          <div class="d-flex justify-content-between align-items-center">
-            <span class="text-muted small">Awaiting confirmation</span>
-            <span class="fw-semibold {% if reg_stats.pending %}text-warning{% else %}text-muted{% endif %}">
-              {{ reg_stats.pending }}
-            </span>
-          </div>
-        </div>
-        {% if reg_stats.pending %}
-        <div class="mt-3">
-          <a href="{% url 'tournament_list' %}" class="btn btn-warning btn-sm w-100" style="font-size:0.78rem;">
-            ⚠ {{ reg_stats.pending }} pending — review
-          </a>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-
-    <!-- Payments -->
-    <div class="col-12 col-sm-6 col-lg-4">
-      <div class="card p-4 h-100">
-        <h6 class="fw-bold mb-3" style="color:var(--chess-gold);">💳 Payments</h6>
-        <div class="d-flex flex-column gap-2">
-          <div class="d-flex justify-content-between align-items-center">
-            <span class="text-muted small">Revenue collected</span>
-            <span class="fw-bold fs-5" style="color:var(--chess-accent);">
-              {{ payment_stats.revenue_currency }} {{ payment_stats.revenue|floatformat:2 }}
-            </span>
-          </div>
-          <div class="d-flex justify-content-between align-items-center">
-            <span class="text-muted small">Completed payments</span>
-            <span class="fw-semibold text-success">{{ payment_stats.completed }}</span>
-          </div>
-          <div class="d-flex justify-content-between align-items-center">
-            <span class="text-muted small">Pending / awaiting</span>
-            <span class="fw-semibold {% if payment_stats.pending %}text-warning{% else %}text-muted{% endif %}">
-              {{ payment_stats.pending }}
-            </span>
+    <div class="col">
+      <div class="panel" style="height:100%;">
+        <div class="panel-head"><h3>Members</h3></div>
+        <div class="panel-body">
+          <div class="dl">
+            <div><dt>Players</dt><dd class="num">{{ member_stats.players }}</dd></div>
+            <div><dt>Coaches</dt><dd class="num">{{ member_stats.coaches }}</dd></div>
+            <div><dt>Admins</dt><dd class="num">{{ member_stats.admins }}</dd></div>
+            <div><dt>Inactive</dt><dd class="num">{{ member_stats.inactive }}</dd></div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Matches -->
-    <div class="col-12 col-sm-6 col-lg-4">
-      <div class="card p-4 h-100">
-        <h6 class="fw-bold mb-3" style="color:var(--chess-gold);">♟ Matches</h6>
-        <div class="d-flex flex-column gap-2">
-          <div class="d-flex justify-content-between align-items-center">
-            <span class="text-muted small">Games played</span>
-            <span class="fw-bold fs-5">{{ match_stats.total }}</span>
+    <div class="col">
+      <div class="panel" style="height:100%;">
+        <div class="panel-head"><h3>Tournaments</h3></div>
+        <div class="panel-body">
+          <div class="dl">
+            <div><dt>Total</dt><dd class="num">{{ tournament_stats.total }}</dd></div>
+            <div><dt>Upcoming</dt><dd class="num">{{ tournament_stats.upcoming }}</dd></div>
+            <div><dt>In progress</dt><dd class="num">{{ tournament_stats.in_progress }}</dd></div>
+            <div><dt>Completed</dt><dd class="num">{{ tournament_stats.completed }}</dd></div>
           </div>
-          <div class="d-flex justify-content-between align-items-center">
-            <span class="text-muted small">Awaiting results</span>
-            <span class="fw-semibold {% if match_stats.pending %}text-warning{% else %}text-muted{% endif %}">
-              {{ match_stats.pending }}
-            </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="panel" style="height:100%;">
+        <div class="panel-head"><h3>Entries</h3></div>
+        <div class="panel-body">
+          <div class="dl">
+            <div><dt>Total</dt><dd class="num">{{ reg_stats.total }}</dd></div>
+            <div><dt>Confirmed</dt><dd class="num">{{ reg_stats.confirmed }}</dd></div>
+            <div><dt>Unconfirmed</dt><dd class="num">{{ reg_stats.pending }}</dd></div>
           </div>
         </div>
       </div>
@@ -171,154 +146,158 @@
 
   </div>
 
-  <!-- ── Active tournaments table ───────────────────────────── -->
+  {# ------------------------------------------------- active tournaments #}
   {% if active_tournaments %}
-  <div class="card p-4 mb-4">
-    <h6 class="fw-bold mb-3">⚡ Active Tournaments</h6>
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead style="background:var(--chess-dark);color:white;">
+    <div class="panel panel-tight" style="margin-bottom:var(--s-5);overflow-x:auto;">
+      <div class="panel-head"><h3>Running now</h3></div>
+      <table class="grid">
+        <thead>
           <tr>
             <th>Tournament</th>
-            <th class="d-none d-md-table-cell">Format</th>
-            <th class="text-center">Status</th>
-            <th class="text-center">Players</th>
-            <th class="text-center">Dates</th>
-            <th></th>
+            <th class="hide-phone">Format</th>
+            <th>Status</th>
+            <th class="r">Entered</th>
+            <th class="hide-phone">Dates</th>
+            <th class="r"></th>
           </tr>
         </thead>
         <tbody>
           {% for t in active_tournaments %}
-          <tr>
-            <td class="fw-semibold">{{ t.name }}</td>
-            <td class="d-none d-md-table-cell text-muted small">{{ t.get_format_display }}</td>
-            <td class="text-center">
-              <span class="badge rounded-pill badge-status-{{ t.status }}">{{ t.get_status_display }}</span>
-            </td>
-            <td class="text-center">
-              <span style="color:var(--chess-accent);font-weight:600;">{{ t.player_count }}</span>
-              <span class="text-muted small">/ {{ t.max_players }}</span>
-            </td>
-            <td class="text-center text-muted small">
-              {{ t.start_date|date:"d M" }} – {{ t.end_date|date:"d M Y" }}
-            </td>
-            <td class="text-end">
-              <a href="{% url 'tournament_manage' t.pk %}" class="btn btn-chess btn-sm">Manage</a>
-            </td>
-          </tr>
+            <tr>
+              <td style="font-weight:600;">
+                {{ t.name }}
+                <div class="tiny muted show-phone">{{ t.get_format_display }}</div>
+              </td>
+              <td class="hide-phone small muted">{{ t.get_format_display }}</td>
+              <td>
+                {% if t.status == 'in_progress' %}
+                  <span class="tag tag-live">Playing</span>
+                {% elif t.status == 'registration_open' %}
+                  <span class="tag tag-open">Entries open</span>
+                {% elif t.status == 'upcoming' %}
+                  <span class="tag tag-soon">Upcoming</span>
+                {% else %}
+                  <span class="tag tag-done">{{ t.get_status_display }}</span>
+                {% endif %}
+              </td>
+              <td class="num r">
+                {{ t.player_count }}<span class="muted"> / {{ t.max_players }}</span>
+              </td>
+              <td class="hide-phone small muted nowrap">
+                {{ t.start_date|date:"d M" }} to {{ t.end_date|date:"d M Y" }}
+              </td>
+              <td class="r">
+                <a class="btn btn-primary btn-sm" href="{% url 'tournament_manage' t.pk %}">Manage</a>
+              </td>
+            </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-  </div>
   {% endif %}
 
-  <!-- ── Bottom row: Recent regs + Recent payments ──────────── -->
-  <div class="row g-4">
+  {# ------------------------------------------------------ recent activity #}
+  <div class="row">
 
-    <!-- Recent registrations -->
-    <div class="col-lg-7">
-      <div class="card p-4 h-100">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h6 class="fw-bold mb-0">🆕 Recent Registrations</h6>
-          <span class="text-muted small">last 10</span>
+    <div class="col-8">
+      <div class="panel panel-tight" style="height:100%;">
+        <div class="panel-head">
+          <h3>Latest entries</h3>
+          <span class="tiny muted">last 10</span>
         </div>
         {% if recent_regs %}
-        <div class="table-responsive">
-          <table class="table table-sm align-middle mb-0">
-            <thead class="table-dark">
+          <table class="grid">
+            <thead>
               <tr>
                 <th>Player</th>
                 <th>Tournament</th>
-                <th class="text-center">Status</th>
-                <th class="text-center d-none d-md-table-cell">Date</th>
+                <th>Status</th>
+                <th class="hide-phone r">When</th>
               </tr>
             </thead>
             <tbody>
               {% for reg in recent_regs %}
-              <tr>
-                <td style="font-size:0.85rem;">
-                  {{ reg.player.user.get_full_name|default:reg.player.user.username }}
-                </td>
-                <td style="font-size:0.82rem;" class="text-muted">{{ reg.tournament.name }}</td>
-                <td class="text-center">
-                  {% if reg.status == 'confirmed' %}
-                    <span class="badge bg-success">Confirmed</span>
-                  {% elif reg.status == 'pending' %}
-                    <span class="badge bg-warning text-dark">Pending</span>
-                  {% else %}
-                    <span class="badge bg-secondary">{{ reg.get_status_display }}</span>
-                  {% endif %}
-                </td>
-                <td class="text-center text-muted d-none d-md-table-cell" style="font-size:0.78rem;">
-                  {{ reg.registered_at|date:"d M, H:i" }}
-                </td>
-              </tr>
+                <tr>
+                  <td>{{ reg.player.user.get_full_name|default:reg.player.user.username }}</td>
+                  <td class="small muted">{{ reg.tournament.name }}</td>
+                  <td>
+                    {% if reg.status == 'confirmed' %}
+                      <span class="tag tag-open">Confirmed</span>
+                    {% elif reg.status == 'pending' %}
+                      <span class="tag tag-soon">Pending</span>
+                    {% else %}
+                      <span class="tag">{{ reg.get_status_display }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="hide-phone r tiny muted nowrap">
+                    {{ reg.registered_at|date:"d M, H:i" }}
+                  </td>
+                </tr>
               {% endfor %}
             </tbody>
           </table>
-        </div>
         {% else %}
-        <p class="text-muted small mb-0">No registrations yet.</p>
+          <div class="empty">
+            <strong>No entries yet.</strong>
+            They appear here as players register.
+          </div>
         {% endif %}
       </div>
     </div>
 
-    <!-- Recent payments -->
-    <div class="col-lg-5">
-      <div class="card p-4 h-100">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h6 class="fw-bold mb-0">💳 Recent Payments</h6>
-          <span class="text-muted small">last 8</span>
+    <div class="col-4">
+      <div class="panel panel-tight" style="height:100%;">
+        <div class="panel-head">
+          <h3>Latest payments</h3>
+          <span class="tiny muted">last 8</span>
         </div>
         {% if recent_payments %}
-        <div class="d-flex flex-column gap-2">
-          {% for p in recent_payments %}
-          <div class="d-flex justify-content-between align-items-center py-1"
-               style="border-bottom:1px solid #f0f0f0;font-size:0.82rem;">
-            <div>
-              <div class="fw-semibold">{{ p.member.user.get_full_name|default:p.member.user.username }}</div>
-              <div class="text-muted" style="font-size:0.74rem;">
-                {{ p.get_gateway_display }} · {{ p.created_at|date:"d M" }}
-              </div>
-            </div>
-            <div class="text-end">
-              <div class="fw-bold" style="color:var(--chess-accent);">{{ p.currency }} {{ p.amount }}</div>
-              <div>
-                {% if p.status == 'completed' %}
-                  <span class="badge bg-success" style="font-size:0.68rem;">Paid</span>
-                {% elif p.status == 'awaiting_approval' %}
-                  <span class="badge bg-warning text-dark" style="font-size:0.68rem;">Awaiting</span>
-                {% elif p.status == 'pending' %}
-                  <span class="badge bg-secondary" style="font-size:0.68rem;">Pending</span>
-                {% else %}
-                  <span class="badge bg-light text-dark border" style="font-size:0.68rem;">{{ p.get_status_display }}</span>
-                {% endif %}
-              </div>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
+          <table class="grid">
+            <tbody>
+              {% for p in recent_payments %}
+                <tr>
+                  <td>
+                    <div style="font-weight:600;">
+                      {{ p.member.user.get_full_name|default:p.member.user.username }}
+                    </div>
+                    <div class="tiny muted">
+                      {{ p.get_gateway_display }}, {{ p.created_at|date:"d M" }}
+                    </div>
+                  </td>
+                  <td class="r nowrap">
+                    <div class="num" style="font-weight:700;">{{ p.currency }} {{ p.amount }}</div>
+                    {% if p.status == 'completed' %}
+                      <span class="tag tag-open">Paid</span>
+                    {% elif p.status == 'awaiting_approval' %}
+                      <span class="tag tag-soon">Awaiting</span>
+                    {% elif p.status == 'pending' %}
+                      <span class="tag">Pending</span>
+                    {% else %}
+                      <span class="tag">{{ p.get_status_display }}</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         {% else %}
-        <p class="text-muted small mb-0">No payment activity yet.</p>
+          <div class="empty">
+            <strong>Nothing yet.</strong>
+            Paid entries appear here.
+          </div>
         {% endif %}
       </div>
     </div>
 
   </div>
 
-  <!-- Quick links -->
-  <div class="row g-3 mt-3">
-    <div class="col-12">
-      <div class="card p-3">
-        <div class="d-flex gap-2 flex-wrap">
-          <a href="{% url 'manage_members' %}" class="btn btn-outline-secondary btn-sm">👥 Manage Members</a>
-          <a href="{% url 'tournament_list' %}" class="btn btn-outline-secondary btn-sm">🏆 Tournaments</a>
-          <a href="{% url 'tournament_create' %}" class="btn btn-outline-secondary btn-sm">＋ New Tournament</a>
-          {% if is_staff %}<a href="/admin/" class="btn btn-outline-secondary btn-sm">🛠 Django Admin</a>{% endif %}
-        </div>
-      </div>
-    </div>
+  <div class="toolbar" style="margin-top:var(--s-5);">
+    <a class="btn btn-quiet btn-sm" href="{% url 'manage_members' %}">Manage members</a>
+    <a class="btn btn-quiet btn-sm" href="{% url 'tournament_list' %}">Tournaments</a>
+    <a class="btn btn-quiet btn-sm" href="{% url 'tournament_create' %}">New tournament</a>
+    {% if is_staff %}
+      <a class="btn btn-quiet btn-sm" href="/admin/">Django admin</a>
+    {% endif %}
   </div>
 
 </div>

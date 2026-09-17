@@ -1,295 +1,295 @@
 {% extends 'base.html' %}
-{% block title %}Member Management — ChessHub{% endblock %}
+
+{% block title %}Members{% endblock %}
+
+{% comment %}
+  The page an administrator spends the most time on, so it is dense on
+  purpose. Paging through three screens to find one player is worse than a
+  slightly crowded table.
+
+  FOUR THINGS FIXED IN THE MIGRATION, all of them live bugs:
+
+  1. INVISIBLE TABLE HEADER. The header row was
+     `style="background:var(--chess-dark);color:white"`, and --chess-dark has
+     not existed since the redesign deleted the inline stylesheet in 72e42d0.
+     An undefined custom property makes the declaration invalid at computed
+     value time, so the background fell back to transparent and left white
+     text sitting on a white card. The column headings have been unreadable.
+     Same story for --chess-accent on the ELO column.
+
+  2. THE ANNOUNCEMENT COULD NOT BE SENT WITHOUT JAVASCRIPT. The send control
+     was type="button" calling confirmSend(), so with scripts off it did
+     nothing at all. It is a real submit button now and the confirmation
+     hangs off the form's submit event, which means the worst case is that
+     the mail goes without asking twice rather than never going.
+
+  3. THE COMPOSE PANEL WAS A BOOTSTRAP COLLAPSE. Dropping Bootstrap would
+     have left it permanently open. It is a details element now, which needs
+     no JavaScript and no library.
+
+  4. ACTIONS WERE UNLABELLED GLYPHS. Deactivating a member was a button
+     reading U+2298, resetting somebody's rating was U+27F3. Both fall back
+     to empty boxes on the handsets this is opened on, so an administrator
+     was choosing between two blank buttons, one of which wipes a rating
+     history. They are words now.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="wrap page">
 
-  <!-- Header -->
-  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-4">
+  <div class="between" style="margin-bottom:var(--s-5);">
     <div>
-      <h3 class="fw-bold mb-0">Member Management</h3>
-      <div class="text-muted small">
-        {% if user.is_staff %}All associations{% else %}{{ user.member.association.name }}{% endif %}
-      </div>
-    </div>
-    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm">← Dashboard</a>
-  </div>
-
-
-  <!-- Summary cards -->
-  <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3 col-lg-2">
-      <div class="card p-3 text-center">
-        <div class="fw-bold fs-4">{{ summary.total }}</div>
-        <div class="text-muted small">Total</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3 col-lg-2">
-      <div class="card p-3 text-center">
-        <div class="fw-bold fs-4 text-success">{{ summary.active }}</div>
-        <div class="text-muted small">Active</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3 col-lg-2">
-      <div class="card p-3 text-center">
-        <div class="fw-bold fs-4" style="color:var(--chess-accent);">{{ summary.players }}</div>
-        <div class="text-muted small">Players</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3 col-lg-2">
-      <div class="card p-3 text-center">
-        <div class="fw-bold fs-4 text-warning">{{ summary.coaches }}</div>
-        <div class="text-muted small">Coaches</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3 col-lg-2">
-      <div class="card p-3 text-center">
-        <div class="fw-bold fs-4 text-info">{{ summary.admins }}</div>
-        <div class="text-muted small">Admins</div>
-      </div>
+      <p class="tiny muted" style="margin:0;"><a href="{% url 'dashboard' %}">Dashboard</a></p>
+      <h1 class="page-title">Members</h1>
+      <p class="page-sub" style="margin:0;">
+        {% if user.is_staff %}Every club{% else %}{{ user.member.association.name }}{% endif %}
+      </p>
     </div>
   </div>
 
-  <!-- Filters -->
-  <div class="card p-3 mb-4">
-    <form method="get" class="row g-2 align-items-end">
-      <div class="col-sm-5">
-        <input type="text" name="q" value="{{ search }}" class="form-control form-control-sm"
-               placeholder="Search by name or username…">
-      </div>
-      <div class="col-sm-3">
-        <select name="role" class="form-select form-select-sm">
-          <option value="">All roles</option>
-          {% for val, label in role_choices %}
+  {# ------------------------------------------------------------- summary #}
+  <div class="stats" style="margin-bottom:var(--s-5);">
+    <div class="stat stat-key">
+      <span class="stat-n">{{ summary.total }}</span>
+      <span class="stat-l">Members</span>
+    </div>
+    <div class="stat">
+      <span class="stat-n">{{ summary.active }}</span>
+      <span class="stat-l">Active</span>
+    </div>
+    <div class="stat">
+      <span class="stat-n">{{ summary.players }}</span>
+      <span class="stat-l">Players</span>
+    </div>
+    <div class="stat">
+      <span class="stat-n">{{ summary.coaches }}</span>
+      <span class="stat-l">Coaches</span>
+    </div>
+    <div class="stat">
+      <span class="stat-n">{{ summary.admins }}</span>
+      <span class="stat-l">Admins</span>
+    </div>
+  </div>
+
+  {# ------------------------------------------------------------- filters #}
+  <form method="get" class="inline-form" style="margin-bottom:var(--s-5);">
+    <div class="field">
+      <label class="lbl" for="q">Search</label>
+      <input type="search" id="q" name="q" value="{{ search }}"
+             placeholder="Name or username">
+    </div>
+    <div class="field">
+      <label class="lbl" for="role">Role</label>
+      <select name="role" id="role">
+        <option value="">All roles</option>
+        {% for val, label in role_choices %}
           <option value="{{ val }}" {% if role_filter == val %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field narrow">
+      <label class="lbl" for="status">Status</label>
+      <select name="status" id="status">
+        <option value="active"   {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+        <option value=""         {% if status_filter == '' %}selected{% endif %}>All</option>
+      </select>
+    </div>
+    <div class="field narrow">
+      <div class="toolbar">
+        <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+        {% if search or role_filter or status_filter %}
+          <a class="btn btn-quiet btn-sm" href="{% url 'manage_members' %}">Reset</a>
+        {% endif %}
       </div>
-      <div class="col-sm-2">
-        <select name="status" class="form-select form-select-sm">
-          <option value="active"   {% if status_filter == 'active' %}selected{% endif %}>Active</option>
-          <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
-          <option value=""         {% if status_filter == '' %}selected{% endif %}>All</option>
-        </select>
-      </div>
-      <div class="col-sm-2 d-flex gap-1">
-        <button type="submit" class="btn btn-chess btn-sm">Filter</button>
-        <a href="{% url 'manage_members' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
-      </div>
-    </form>
-  </div>
+    </div>
+  </form>
 
-  <!-- Members table -->
+  {# --------------------------------------------------------------- table #}
   {% if members %}
-  <div class="card">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead style="background:var(--chess-dark);color:white;">
+    <div class="panel panel-tight" style="overflow-x:auto;">
+      <table class="grid">
+        <thead>
           <tr>
             <th>Member</th>
-            <th class="d-none d-md-table-cell">Association</th>
-            <th class="text-center">ELO</th>
-            <th style="width:160px;">Role</th>
-            <th class="d-none d-lg-table-cell" style="width:170px;">Coach</th>
-            <th class="text-center">Status</th>
-            <th class="text-center">Actions</th>
+            <th class="hide-phone">Club</th>
+            <th class="r">ELO</th>
+            <th>Role</th>
+            <th class="hide-phone">Coach</th>
+            <th>Status</th>
+            <th class="r">Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for m in members %}
-          <tr class="{% if not m.is_active %}table-secondary opacity-50{% endif %}">
+            <tr{% if not m.is_active %} style="opacity:.55;"{% endif %}>
 
-            <!-- Name + username -->
-            <td>
-              <a href="{% url 'player_profile' m.pk %}" class="fw-semibold text-decoration-none">
-                {{ m.user.get_full_name|default:m.user.username }}
-              </a>
-              <div class="text-muted small">@{{ m.user.username }}</div>
-            </td>
+              <td>
+                <a href="{% url 'player_profile' m.pk %}" style="font-weight:600;">
+                  {{ m.user.get_full_name|default:m.user.username }}
+                </a>
+                <div class="tiny muted">{{ m.user.username }}</div>
+                {% comment %}The club column is dropped on a phone, so it
+                   reappears here rather than the information vanishing.{% endcomment %}
+                <div class="tiny muted show-phone">{{ m.association.name }}</div>
+              </td>
 
-            <!-- Association (staff view) -->
-            <td class="d-none d-md-table-cell text-muted small">{{ m.association.name }}</td>
+              <td class="hide-phone small muted">{{ m.association.name }}</td>
 
-            <!-- ELO -->
-            <td class="text-center fw-bold" style="color:var(--chess-accent);">{{ m.rating }}</td>
+              <td class="num r" style="font-weight:700;">{{ m.rating }}</td>
 
-            <!-- Role selector -->
-            <td>
-              <form method="post" class="d-flex gap-1">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="set_role">
-                <input type="hidden" name="member_pk" value="{{ m.pk }}">
-                <select name="role" class="form-select form-select-sm"
-                        onchange="this.form.submit()" style="min-width:120px;">
-                  {% for val, label in role_choices %}
-                  <option value="{{ val }}" {% if m.role == val %}selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                </select>
-              </form>
-            </td>
-
-            <!-- Coach assignment -->
-            <td class="d-none d-lg-table-cell">
-              {% if m.role == 'player' or m.role == 'parent' %}
-              <form method="post" class="d-flex gap-1">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="assign_coach">
-                <input type="hidden" name="member_pk" value="{{ m.pk }}">
-                <select name="coach_pk" class="form-select form-select-sm"
-                        onchange="this.form.submit()" style="min-width:130px;font-size:0.78rem;">
-                  <option value="">— None —</option>
-                  {% for coach in coaches %}
-                  <option value="{{ coach.pk }}" {% if m.coach_id == coach.pk %}selected{% endif %}>
-                    {{ coach.user.get_full_name|default:coach.user.username }}
-                  </option>
-                  {% endfor %}
-                </select>
-              </form>
-              {% else %}
-              <span class="text-muted small">—</span>
-              {% endif %}
-            </td>
-
-            <!-- Active status badge -->
-            <td class="text-center">
-              {% if m.is_active %}
-                <span class="badge bg-success">Active</span>
-              {% else %}
-                <span class="badge bg-secondary">Inactive</span>
-              {% endif %}
-            </td>
-
-            <!-- Action buttons -->
-            <td class="text-center">
-              <div class="d-flex gap-1 justify-content-center flex-wrap">
-
-                <!-- Toggle active -->
-                <form method="post">
+              <td>
+                <form method="post" class="cell-form">
                   {% csrf_token %}
-                  <input type="hidden" name="action" value="toggle_active">
+                  <input type="hidden" name="action" value="set_role">
                   <input type="hidden" name="member_pk" value="{{ m.pk }}">
-                  <button type="submit"
-                    class="btn btn-sm {% if m.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
-                    title="{% if m.is_active %}Deactivate{% else %}Activate{% endif %}"
-                    onclick="return confirm('{% if m.is_active %}Deactivate{% else %}Activate{% endif %} {{ m.user.get_full_name }}?')">
-                    {% if m.is_active %}⊘{% else %}✓{% endif %}
-                  </button>
+                  <select name="role" onchange="this.form.submit()"
+                          aria-label="Role for {{ m.user.get_full_name|default:m.user.username }}">
+                    {% for val, label in role_choices %}
+                      <option value="{{ val }}" {% if m.role == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                  <noscript><button type="submit" class="btn btn-quiet btn-sm">Set</button></noscript>
                 </form>
+              </td>
 
-                <!-- Reset ELO (staff only) -->
-                {% if can_reset_elo %}
-                <form method="post">
-                  {% csrf_token %}
-                  <input type="hidden" name="action" value="reset_elo">
-                  <input type="hidden" name="member_pk" value="{{ m.pk }}">
-                  <button type="submit" class="btn btn-sm btn-outline-warning" title="Reset ELO to 1200"
-                    onclick="return confirm('Reset {{ m.user.get_full_name }}\'s ELO to 1200? This cannot be undone.')">
-                    ⟳
-                  </button>
-                </form>
+              <td class="hide-phone">
+                {% if m.role == 'player' or m.role == 'parent' %}
+                  <form method="post" class="cell-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="assign_coach">
+                    <input type="hidden" name="member_pk" value="{{ m.pk }}">
+                    <select name="coach_pk" onchange="this.form.submit()"
+                            aria-label="Coach for {{ m.user.get_full_name|default:m.user.username }}">
+                      <option value="">No coach</option>
+                      {% for coach in coaches %}
+                        <option value="{{ coach.pk }}" {% if m.coach_id == coach.pk %}selected{% endif %}>
+                          {{ coach.user.get_full_name|default:coach.user.username }}
+                        </option>
+                      {% endfor %}
+                    </select>
+                    <noscript><button type="submit" class="btn btn-quiet btn-sm">Set</button></noscript>
+                  </form>
+                {% else %}
+                  <span class="tiny muted">Not applicable</span>
                 {% endif %}
+              </td>
 
-              </div>
-            </td>
+              <td>
+                {% if m.is_active %}
+                  <span class="tag tag-open">Active</span>
+                {% else %}
+                  <span class="tag">Inactive</span>
+                {% endif %}
+              </td>
 
-          </tr>
+              {% comment %}Words, not glyphs. An administrator choosing
+                 between two blank boxes, one of which erases a rating
+                 history, is how a rating history gets erased.{% endcomment %}
+              <td class="r">
+                <div class="toolbar" style="justify-content:flex-end;">
+                  <form method="post"
+                        onsubmit="return confirm('{% if m.is_active %}Deactivate{% else %}Activate{% endif %} {{ m.user.get_full_name|default:m.user.username }}?')">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_active">
+                    <input type="hidden" name="member_pk" value="{{ m.pk }}">
+                    <button type="submit"
+                            class="btn btn-sm {% if m.is_active %}btn-danger{% else %}btn-quiet{% endif %}">
+                      {% if m.is_active %}Deactivate{% else %}Activate{% endif %}
+                    </button>
+                  </form>
+
+                  {% if can_reset_elo %}
+                    <form method="post"
+                          onsubmit="return confirm('Reset {{ m.user.get_full_name|default:m.user.username }} to 1200? Their rating history cannot be recovered.')">
+                      {% csrf_token %}
+                      <input type="hidden" name="action" value="reset_elo">
+                      <input type="hidden" name="member_pk" value="{{ m.pk }}">
+                      <button type="submit" class="btn btn-sm btn-danger">Reset ELO</button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
+
+            </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-  </div>
 
-  {% include 'partials/pagination.html' %}
-  <p class="text-muted small mt-2">{{ page_obj.paginator.count }} member{{ page_obj.paginator.count|pluralize }} total.</p>
+    {% include 'partials/pagination.html' %}
+    <p class="tiny muted" style="margin-top:var(--s-3);">
+      <span class="num">{{ page_obj.paginator.count }}</span>
+      member{{ page_obj.paginator.count|pluralize }} in total.
+    </p>
 
   {% else %}
-  <div class="text-center py-5 text-muted">
-    <div style="font-size:3rem;">👥</div>
-    <p class="mt-2">No members match your filters.</p>
-    <a href="{% url 'manage_members' %}" class="btn btn-outline-secondary btn-sm">Clear filters</a>
-  </div>
+    <div class="panel">
+      <div class="empty">
+        <strong>No members match those filters.</strong>
+        Try a wider search, or
+        <a href="{% url 'manage_members' %}">clear them</a>.
+      </div>
+    </div>
   {% endif %}
 
+  {# -------------------------------------------------------- announcement #}
+  {% comment %}
+    A details element rather than a Bootstrap collapse. Closed by default
+    because this sends mail to every member and should take a deliberate act
+    to open, and it works with scripts off, which the old one did not.
+  {% endcomment %}
+  <details class="panel" style="margin-top:var(--s-6);">
+    <summary style="padding:var(--s-3) var(--s-4);cursor:pointer;font-weight:700;">
+      Email every member
+    </summary>
+    <div class="panel-body" style="border-top:var(--line);">
 
-  <!-- Bulk Email Announcement -->
-  <div class="card p-4 mt-4">
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <h6 class="fw-bold mb-0">📢 Email All Members</h6>
-        <p class="text-muted small mb-0 mt-1">
-          Send a custom announcement to
-          {% if user.is_staff %}all members across all associations{% else %}all {{ summary.active }} active member{{ summary.active|pluralize }} of your association{% endif %}.
-        </p>
-      </div>
-      <button class="btn btn-outline-secondary btn-sm" type="button"
-              data-bs-toggle="collapse" data-bs-target="#announceForm" aria-expanded="false">
-        Compose ▾
-      </button>
-    </div>
+      <p class="small muted" style="margin:0 0 var(--s-4);">
+        Goes to
+        {% if user.is_staff %}every active member of every club{% else %}all
+        {{ summary.active }} active member{{ summary.active|pluralize }} of
+        {{ user.member.association.name }}{% endif %}. There is no undo and no
+        recall, so read it twice.
+      </p>
 
-    <div class="collapse mt-4" id="announceForm">
-      <form method="post" id="announceFormEl">
+      <form method="post"
+            onsubmit="return confirm('Send this to every active member? It cannot be recalled.')">
         {% csrf_token %}
         <input type="hidden" name="action" value="announce">
 
         {% if user.is_staff %}
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Target Association</label>
-          <select name="association_pk" class="form-select form-select-sm">
-            <option value="">— All Associations —</option>
-            {% for assoc in all_associations %}
-            <option value="{{ assoc.pk }}">{{ assoc.name }}</option>
-            {% endfor %}
-          </select>
-          <div class="form-text">Leave blank to send to all active members across every association.</div>
-        </div>
+          <div class="field">
+            <label class="lbl" for="id_target">Send to</label>
+            <select name="association_pk" id="id_target">
+              <option value="">Every club</option>
+              {% for assoc in all_associations %}
+                <option value="{{ assoc.pk }}">{{ assoc.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
         {% endif %}
 
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Subject <span class="text-danger">*</span></label>
-          <input type="text" name="subject" class="form-control" maxlength="200" required
-                 placeholder="e.g. Club Blitz Tournament — This Saturday">
+        <div class="field">
+          <label class="lbl" for="id_subject">Subject</label>
+          <input type="text" name="subject" id="id_subject" maxlength="200" required
+                 placeholder="Club blitz this Saturday">
         </div>
 
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Message <span class="text-danger">*</span></label>
-          <textarea name="body" class="form-control" rows="6" required
-                    placeholder="Write your announcement here. Each paragraph will be formatted in the email."></textarea>
-          <div class="form-text">Plain text. Blank lines become paragraph breaks in the email.</div>
+        <div class="field">
+          <label class="lbl" for="id_body">Message</label>
+          <textarea name="body" id="id_body" rows="6" required
+                    placeholder="Write the announcement here."></textarea>
+          <span class="help">Plain text. A blank line starts a new paragraph.</span>
         </div>
 
-        <div class="d-flex gap-3 align-items-center flex-wrap">
-          <button type="button" class="btn btn-chess"
-                  onclick="confirmSend()">
-            📤 Send Announcement
-          </button>
-          <span class="text-muted small">
-            Recipients will receive a formatted HTML email from ChessHub.
-          </span>
-        </div>
+        <button type="submit" class="btn btn-primary">Send announcement</button>
       </form>
+
     </div>
-  </div>
+  </details>
 
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function confirmSend() {
-  const subject = document.querySelector('#announceFormEl [name="subject"]').value.trim();
-  const body    = document.querySelector('#announceFormEl [name="body"]').value.trim();
-  if (!subject || !body) {
-    alert('Please fill in both the subject and message before sending.');
-    return;
-  }
-  const assocSelect = document.querySelector('#announceFormEl [name="association_pk"]');
-  const target = assocSelect
-    ? (assocSelect.value ? assocSelect.options[assocSelect.selectedIndex].text : 'ALL associations')
-    : 'your association';
-  if (confirm(`Send "${subject}" to all active members of ${target}?\n\nThis cannot be undone.`)) {
-    document.getElementById('announceFormEl').submit();
-  }
-}
-</script>
 {% endblock %}

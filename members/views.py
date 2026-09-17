@@ -437,6 +437,13 @@ def admin_stats(request):
         'coaches':  member_qs.filter(role='coach', is_active=True).count(),
         'admins':   member_qs.filter(role='admin', is_active=True).count(),
     }
+    # Computed here, not in the template. The template used to do
+    # {{ member_stats.total|add:"-"|add:member_stats.active }}, which is not
+    # subtraction: `add` coerces to int, fails on "-", falls back to string
+    # concatenation, fails again, and returns the empty string. The Inactive
+    # figure on this dashboard has been blank since it was written. It is the
+    # same broken idiom that made every tournament's "spots left" blank.
+    member_stats['inactive'] = member_stats['total'] - member_stats['active']
 
     # ── Tournaments ───────────────────────────────────────────
     t_qs = Tournament.objects.filter(**tfilter())

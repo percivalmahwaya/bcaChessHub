@@ -1,169 +1,216 @@
 {% extends 'base.html' %}
+
 {% block title %}{{ title }}{% endblock %}
 
-{% block content %}
-<div class="container mt-4" style="max-width:680px;">
+{% comment %}
+  Creating a tournament is the longest form on the site, so it is split into
+  two panels matching how a director actually thinks about an event: what and
+  where it is, then how it will be run and what it costs.
 
-  <div class="mb-4">
-    <a href="{% url 'tournament_list' %}" class="text-muted small">&larr; All Tournaments</a>
-    <h3 class="fw-bold mt-1 mb-0">{{ title }}</h3>
-  </div>
+  TWO BUGS FIXED IN THE MIGRATION, neither cosmetic:
+
+  1. The extra_js block was nested INSIDE the content block. Django collects
+     nested blocks into the same block map, so the script rendered twice: once
+     in place and once where base.html puts it. Two input listeners on the
+     currency field. Harmless in effect, wrong in fact, and it stops being
+     harmless the day that script does something other than copy a label.
+
+  2. Every primary button here was btn-chess, a class that has not existed
+     since the redesign deleted the inline stylesheet in 72e42d0. The Save
+     button on a management page has been rendering as unstyled text.
+
+  The red required asterisks are gone. Ten of them mark nothing out. The
+  genuinely optional fields say "optional" instead, which is the information
+  a person actually wants.
+{% endcomment %}
+{% block legacy_css %}{% endblock %}
+{% block legacy_js %}{% endblock %}
+
+{% block content %}
+<div class="wrap page" style="max-width:44rem;">
+
+  <p class="tiny muted"><a href="{% url 'tournament_list' %}">All tournaments</a></p>
+  <h1 class="page-title">{{ title }}</h1>
 
   {% if form.non_field_errors %}
-  <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
+    <div class="note note-error">{{ form.non_field_errors }}</div>
   {% endif %}
 
   <form method="post" novalidate>
     {% csrf_token %}
 
-    <div class="card p-4 mb-4">
-      <h6 class="fw-bold mb-3 text-uppercase" style="font-size:.75rem;letter-spacing:.06em;color:#888;">Basic Details</h6>
+    <div class="panel" style="margin-bottom:var(--s-5);">
+      <div class="panel-head"><h3>The event</h3></div>
+      <div class="panel-body">
 
-      <!-- Name -->
-      <div class="mb-3">
-        <label class="form-label fw-semibold">Tournament Name <span class="text-danger">*</span></label>
-        <input type="text" name="name" value="{{ form.name.value|default:'' }}"
-               class="form-control {% if form.name.errors %}is-invalid{% endif %}"
-               placeholder="e.g. BCA Open 2026" required>
-        {% for e in form.name.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-      </div>
-
-      <!-- Association (staff only) -->
-      {% if associations %}
-      <div class="mb-3">
-        <label class="form-label fw-semibold">Association <span class="text-danger">*</span></label>
-        <select name="association" class="form-select" required>
-          <option value="">Select association</option>
-          {% for a in associations %}
-          <option value="{{ a.pk }}"
-            {% if tournament and tournament.association_id == a.pk %}selected{% endif %}>
-            {{ a.name }}
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-      {% endif %}
-
-      <!-- Format + Status -->
-      <div class="row g-3 mb-3">
-        <div class="col-sm-6">
-          <label class="form-label fw-semibold">Format <span class="text-danger">*</span></label>
-          <select name="format" class="form-select {% if form.format.errors %}is-invalid{% endif %}">
-            {% for val, label in form.fields.format.choices %}
-            <option value="{{ val }}" {% if form.format.value == val %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
-          {% for e in form.format.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+        <div class="field">
+          <label class="lbl" for="id_name">Tournament name</label>
+          <input type="text" name="name" id="id_name"
+                 value="{{ form.name.value|default:'' }}"
+                 placeholder="BCA Open 2026" autofocus required>
+          {% if form.name.errors %}
+            <ul class="errorlist">{% for e in form.name.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+          {% endif %}
         </div>
-        <div class="col-sm-6">
-          <label class="form-label fw-semibold">Status <span class="text-danger">*</span></label>
-          <select name="status" class="form-select {% if form.status.errors %}is-invalid{% endif %}">
-            {% for val, label in form.fields.status.choices %}
-            <option value="{{ val }}" {% if form.status.value == val %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
-          {% for e in form.status.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-        </div>
-      </div>
 
-      <!-- Location -->
-      <div class="mb-3">
-        <label class="form-label fw-semibold">Location <span class="text-danger">*</span></label>
-        <input type="text" name="location" value="{{ form.location.value|default:'' }}"
-               class="form-control {% if form.location.errors %}is-invalid{% endif %}"
-               placeholder="e.g. Bulawayo City Hall" required>
-        {% for e in form.location.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-      </div>
-
-      <!-- Dates -->
-      <div class="row g-3 mb-3">
-        <div class="col-sm-6">
-          <label class="form-label fw-semibold">Start Date <span class="text-danger">*</span></label>
-          <input type="date" name="start_date" value="{{ form.start_date.value|default:'' }}"
-                 class="form-control {% if form.start_date.errors %}is-invalid{% endif %}" required>
-          {% for e in form.start_date.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-        </div>
-        <div class="col-sm-6">
-          <label class="form-label fw-semibold">End Date <span class="text-danger">*</span></label>
-          <input type="date" name="end_date" value="{{ form.end_date.value|default:'' }}"
-                 class="form-control {% if form.end_date.errors %}is-invalid{% endif %}" required>
-          {% for e in form.end_date.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-        </div>
-      </div>
-
-      <!-- Description -->
-      <div class="mb-0">
-        <label class="form-label fw-semibold">Description</label>
-        <textarea name="description" rows="3"
-                  class="form-control {% if form.description.errors %}is-invalid{% endif %}"
-                  placeholder="Optional: prizes, rules, special notes">{{ form.description.value|default:'' }}</textarea>
-        {% for e in form.description.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-      </div>
-    </div>
-
-    <div class="card p-4 mb-4">
-      <h6 class="fw-bold mb-3 text-uppercase" style="font-size:.75rem;letter-spacing:.06em;color:#888;">Format &amp; Fees</h6>
-
-      <div class="row g-3 mb-3">
-        <div class="col-sm-6">
-          <label class="form-label fw-semibold">Number of Rounds <span class="text-danger">*</span></label>
-          <input type="number" name="num_rounds" value="{{ form.num_rounds.value|default:'5' }}"
-                 class="form-control {% if form.num_rounds.errors %}is-invalid{% endif %}"
-                 min="1" max="20" required>
-          {% for e in form.num_rounds.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-        </div>
-        <div class="col-sm-6">
-          <label class="form-label fw-semibold">Max Players <span class="text-danger">*</span></label>
-          <input type="number" name="max_players" value="{{ form.max_players.value|default:'32' }}"
-                 class="form-control {% if form.max_players.errors %}is-invalid{% endif %}"
-                 min="2" max="512" required>
-          {% for e in form.max_players.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
-        </div>
-      </div>
-
-      <div class="row g-3">
-        <div class="col-sm-4">
-          <label class="form-label fw-semibold">Currency</label>
-          <input type="text" name="currency" value="{{ form.currency.value|default:'USD' }}"
-                 class="form-control" maxlength="10">
-        </div>
-        <div class="col-sm-8">
-          <label class="form-label fw-semibold">Registration Fee</label>
-          <div class="input-group">
-            <span class="input-group-text" id="currencyLabel">{{ form.currency.value|default:'USD' }}</span>
-            <input type="number" name="registration_fee"
-                   value="{{ form.registration_fee.value|default:'0.00' }}"
-                   class="form-control {% if form.registration_fee.errors %}is-invalid{% endif %}"
-                   step="0.01" min="0">
+        {% if associations %}
+          <div class="field">
+            <label class="lbl" for="id_association">Club</label>
+            <select name="association" id="id_association" required>
+              <option value="">Choose a club</option>
+              {% for a in associations %}
+                <option value="{{ a.pk }}"
+                  {% if tournament and tournament.association_id == a.pk %}selected{% endif %}>
+                  {{ a.name }}
+                </option>
+              {% endfor %}
+            </select>
           </div>
-          <div class="form-text">Set to 0 for free entry.</div>
-          {% for e in form.registration_fee.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+        {% endif %}
+
+        <div class="inline-form" style="margin-bottom:var(--s-4);">
+          <div class="field">
+            <label class="lbl" for="id_format">Format</label>
+            <select name="format" id="id_format">
+              {% for val, label in form.fields.format.choices %}
+                <option value="{{ val }}" {% if form.format.value == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            {% if form.format.errors %}
+              <ul class="errorlist">{% for e in form.format.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+          </div>
+          <div class="field">
+            <label class="lbl" for="id_status">Status</label>
+            <select name="status" id="id_status">
+              {% for val, label in form.fields.status.choices %}
+                <option value="{{ val }}" {% if form.status.value == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            {% if form.status.errors %}
+              <ul class="errorlist">{% for e in form.status.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+          </div>
         </div>
+
+        <div class="field">
+          <label class="lbl" for="id_location">Location</label>
+          <input type="text" name="location" id="id_location"
+                 value="{{ form.location.value|default:'' }}"
+                 placeholder="Bulawayo City Hall" required>
+          {% if form.location.errors %}
+            <ul class="errorlist">{% for e in form.location.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+          {% endif %}
+        </div>
+
+        <div class="inline-form" style="margin-bottom:var(--s-4);">
+          <div class="field">
+            <label class="lbl" for="id_start">Starts</label>
+            <input type="date" name="start_date" id="id_start"
+                   value="{{ form.start_date.value|default:'' }}" required>
+            {% if form.start_date.errors %}
+              <ul class="errorlist">{% for e in form.start_date.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+          </div>
+          <div class="field">
+            <label class="lbl" for="id_end">Ends</label>
+            <input type="date" name="end_date" id="id_end"
+                   value="{{ form.end_date.value|default:'' }}" required>
+            {% if form.end_date.errors %}
+              <ul class="errorlist">{% for e in form.end_date.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="field" style="margin-bottom:0;">
+          <label class="lbl" for="id_description">Description, optional</label>
+          <textarea name="description" id="id_description" rows="3"
+                    placeholder="Prizes, rules, anything a player should know before entering">{{ form.description.value|default:'' }}</textarea>
+          {% if form.description.errors %}
+            <ul class="errorlist">{% for e in form.description.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+          {% endif %}
+        </div>
+
       </div>
     </div>
 
-    <div class="d-flex gap-2 justify-content-end">
+    <div class="panel" style="margin-bottom:var(--s-5);">
+      <div class="panel-head"><h3>Rounds and entry</h3></div>
+      <div class="panel-body">
+
+        <div class="inline-form" style="margin-bottom:var(--s-4);">
+          <div class="field">
+            <label class="lbl" for="id_rounds">Number of rounds</label>
+            <input type="number" name="num_rounds" id="id_rounds"
+                   value="{{ form.num_rounds.value|default:'5' }}"
+                   min="1" max="20" required>
+            <span class="help">Five rounds suits a field of up to 32.</span>
+            {% if form.num_rounds.errors %}
+              <ul class="errorlist">{% for e in form.num_rounds.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+          </div>
+          <div class="field">
+            <label class="lbl" for="id_max">Maximum players</label>
+            <input type="number" name="max_players" id="id_max"
+                   value="{{ form.max_players.value|default:'32' }}"
+                   min="2" max="512" required>
+            {% if form.max_players.errors %}
+              <ul class="errorlist">{% for e in form.max_players.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="inline-form" style="margin-bottom:0;">
+          <div class="field narrow">
+            <label class="lbl" for="id_currency">Currency</label>
+            <input type="text" name="currency" id="id_currency"
+                   value="{{ form.currency.value|default:'USD' }}" maxlength="10">
+          </div>
+          <div class="field">
+            <label class="lbl" for="id_fee">
+              Entry fee, <span id="currencyLabel">{{ form.currency.value|default:'USD' }}</span>
+            </label>
+            <input type="number" name="registration_fee" id="id_fee"
+                   value="{{ form.registration_fee.value|default:'0.00' }}"
+                   step="0.01" min="0">
+            <span class="help">
+              Leave at 0 for free entry. Anything above 0 means a player must
+              pay before their place is confirmed.
+            </span>
+            {% if form.registration_fee.errors %}
+              <ul class="errorlist">{% for e in form.registration_fee.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button type="submit" class="btn btn-primary">{{ action }}</button>
       {% if tournament %}
-        <a href="{% url 'tournament_manage' tournament.pk %}" class="btn btn-outline-secondary">Cancel</a>
+        <a class="btn btn-quiet" href="{% url 'tournament_manage' tournament.pk %}">Cancel</a>
       {% else %}
-        <a href="{% url 'tournament_list' %}" class="btn btn-outline-secondary">Cancel</a>
+        <a class="btn btn-quiet" href="{% url 'tournament_list' %}">Cancel</a>
       {% endif %}
-      <button type="submit" class="btn btn-chess px-4 fw-semibold">{{ action }}</button>
     </div>
 
   </form>
 </div>
+{% endblock %}
 
 {% block extra_js %}
 <script>
-// Keep currency label in sync
-const currencyInput = document.querySelector('input[name="currency"]');
-const currencyLabel = document.getElementById('currencyLabel');
-if (currencyInput && currencyLabel) {
-  currencyInput.addEventListener('input', () => {
-    currencyLabel.textContent = currencyInput.value || 'USD';
+// Keeps the fee label showing whatever currency was typed. Purely a label:
+// the submitted value is the currency field itself, so this doing nothing
+// costs nothing.
+(function () {
+  var input = document.getElementById('id_currency');
+  var label = document.getElementById('currencyLabel');
+  if (!input || !label) { return; }
+  input.addEventListener('input', function () {
+    label.textContent = input.value || 'USD';
   });
-}
+})();
 </script>
-{% endblock %}
 {% endblock %}
