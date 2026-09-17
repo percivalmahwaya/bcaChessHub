@@ -4,7 +4,7 @@ from functools import lru_cache
 from django.conf import settings
 from django.shortcuts import render
 from tournaments.models import Tournament
-from members.models import Member
+from members.models import Member, ranked_by_lichess
 from matches.models import Match
 from associations.models import Association
 
@@ -14,9 +14,10 @@ def home(request):
         status__in=['upcoming', 'registration_open']
     ).order_by('start_date')[:3]
 
-    top_players = Member.objects.select_related('user', 'association').filter(
-        role='player', is_active=True
-    ).order_by('-rating')[:5]
+    top_players = ranked_by_lichess(
+        Member.objects.select_related('user', 'association', 'user__lichess')
+        .filter(role='player', is_active=True)
+    )[:5]
 
     stats = {
         'members': Member.objects.filter(is_active=True).count(),

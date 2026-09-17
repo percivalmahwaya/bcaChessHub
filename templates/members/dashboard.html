@@ -56,7 +56,9 @@
           <div class="dl" style="margin-top:var(--s-5);">
             <div>
               <dt>Rating</dt>
-              <dd class="num" style="font-size:var(--t-2xl);font-weight:700;color:var(--bch-terracotta);">{{ member.rating }}</dd>
+              <dd class="num" style="font-size:var(--t-2xl);font-weight:700;color:var(--bch-terracotta);">
+                {% if user.lichess.ranking_rating %}{{ user.lichess.ranking_rating }}{% else %}<span class="muted" style="font-size:var(--t-base);font-weight:400;">Link Lichess</span>{% endif %}
+              </dd>
             </div>
             <div>
               <dt>Games</dt>
@@ -130,7 +132,7 @@
                 {% for p in coached_players %}
                 <tr>
                   <td><a href="{% url 'player_profile' p.pk %}">{{ p.user.get_full_name|default:p.user.username }}</a></td>
-                  <td class="r num" style="font-weight:700;">{{ p.rating }}</td>
+                  <td class="r num" style="font-weight:700;">{{ p.user.lichess.ranking_rating|default:"&mdash;" }}</td>
                 </tr>
                 {% endfor %}
               </tbody>

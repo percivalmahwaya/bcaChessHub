@@ -177,7 +177,27 @@ p  { margin: 0 0 var(--s-4); }
 
 /* ---------------------------------------------------------------- nav */
 
-.masthead { background: var(--bch-ink); color: var(--bch-bone); }
+/* STICKY. The name and the navigation stay put while the page scrolls,
+   because the pages people actually scroll here are long ones: a ratings
+   list, a members table, a round of pairings. Having to scroll back to the
+   top to reach Tournaments is the sort of thing nobody reports and everybody
+   resents.
+
+   The board rule below it is part of the masthead visually, so it sticks too
+   or it detaches and slides away on its own. */
+.masthead {
+  background: var(--bch-ink); color: var(--bch-bone);
+  position: sticky; top: 0; z-index: 50;
+}
+.board-rule { position: sticky; top: 58px; z-index: 50; }
+
+@media (max-width: 860px) {
+  /* On a phone the open menu can be taller than the screen, and a sticky
+     header that tall leaves nothing to read. It scrolls with the page while
+     open. */
+  .masthead.open { position: static; }
+  .masthead.open + .board-rule { position: static; }
+}
 .masthead .wrap { display: flex; align-items: center; gap: var(--s-5); min-height: 58px; }
 
 .brand {

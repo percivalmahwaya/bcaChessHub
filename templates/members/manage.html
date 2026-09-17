@@ -113,7 +113,7 @@
           <tr>
             <th>Member</th>
             <th class="hide-phone">Club</th>
-            <th class="r">ELO</th>
+            <th class="r">Club ELO</th>
             <th>Role</th>
             <th class="hide-phone">Coach</th>
             <th>Status</th>
@@ -136,7 +136,13 @@
 
               <td class="hide-phone small muted">{{ m.association.name }}</td>
 
-              <td class="num r" style="font-weight:700;">{{ m.rating }}</td>
+              {% comment %}
+                The only place this club's own ELO is still visible, and only
+                to administrators. It is no longer shown to players anywhere,
+                but it is still being written by every tournament result, and
+                a number that is written and never readable cannot be audited.
+              {% endcomment %}
+              <td class="num r muted">{{ m.rating }}</td>
 
               <td>
                 <form method="post" class="cell-form">

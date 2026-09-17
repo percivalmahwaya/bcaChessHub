@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models import F
+from django.db.models.functions import Coalesce
 from django.contrib.auth.models import User
 from associations.models import Association
 
@@ -133,15 +135,22 @@ class LichessAccount(models.Model):
     def profile_url(self):
         return f'https://lichess.org/@/{self.username}'
 
+    # The formats this club rates on. Rapid is still fetched and still stored,
+    # it is simply not one of the two Percival chose to run the site on as of
+    # 2026-09-17. Adding it back is this tuple and nothing else.
+    SHOWN = ('blitz', 'bullet')
+
     def ratings(self):
-        """The three ratings, in a shape a template can loop over.
+        """The ratings this club uses, in a shape a template can loop over.
+
+        Blitz first, because it is the one the rankings are ordered on.
 
         Formats never played are left out entirely rather than shown as a
         dash, because a row of dashes reads as missing data when the truth is
         that the player simply does not play bullet.
         """
         out = []
-        for perf in ('bullet', 'blitz', 'rapid'):
+        for perf in self.SHOWN:
             rating = getattr(self, f'{perf}_rating')
             if rating is None:
                 continue
@@ -152,6 +161,20 @@ class LichessAccount(models.Model):
                 'provisional': getattr(self, f'{perf}_provisional'),
             })
         return out
+
+    @property
+    def ranking_rating(self):
+        """The single number this player is ranked on.
+
+        Blitz, falling back to bullet for somebody who only plays bullet.
+        Provisional ratings count here, unlike best_rating: leaving a new
+        player out of the rankings entirely is worse than listing them with a
+        figure marked provisional, and the alternative is an empty list until
+        everybody has played thirty games.
+
+        None for a member with no Lichess account, who sorts last.
+        """
+        return self.blitz_rating if self.blitz_rating is not None else self.bullet_rating
 
     @property
     def best_rating(self):
@@ -173,3 +196,23 @@ class LichessAccount(models.Model):
             setattr(self, field, value)
         self.synced_at = timezone.now()
 
+
+def ranked_by_lichess(queryset):
+    """Order members by the rating this site actually shows.
+
+    ONE copy of this ordering. It was about to be written out in four places
+    (the ratings page, the home page top five, a club's player list and a
+    coach's players), and four copies of a rule is how the ELO formula came to
+    disagree with itself: see matches/rating.py.
+
+    Blitz decides it, falling back to bullet for a player who only plays
+    bullet. Members with no Lichess account sort LAST rather than first, which
+    is what a plain descending sort on NULL would do on some databases, and
+    they are kept in the list rather than filtered out because they are still
+    members. Username breaks ties so the order is stable between page loads
+    rather than reshuffling under the reader.
+    """
+    return queryset.annotate(
+        rank_rating=Coalesce('user__lichess__blitz_rating',
+                             'user__lichess__bullet_rating'),
+    ).order_by(F('rank_rating').desc(nulls_last=True), 'user__username')

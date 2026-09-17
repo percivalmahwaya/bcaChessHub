@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.contrib.auth.models import User
 from associations.models import Association
 from unittest.mock import patch
-from .models import Member, RatingHistory, LichessAccount
+from .models import Member, RatingHistory, LichessAccount, ranked_by_lichess
 from . import lichess
 
 
@@ -226,10 +226,41 @@ class LichessAccountDisplayTest(TestCase):
             rapid_rating=None, rapid_games=0)
 
     def test_unplayed_formats_are_left_out_entirely(self):
+        """Blitz first, because the rankings are ordered on it. Rapid is
+        absent because this club rates on blitz and bullet only as of
+        2026-09-17, not because this account has never played it."""
         perfs = [r['perf'] for r in self.link.ratings()]
-        self.assertEqual(perfs, ['bullet', 'blitz'],
+        self.assertEqual(perfs, ['blitz', 'bullet'],
                          'a format never played should not appear as a dash, '
                          'which reads as missing data')
+
+    def test_rapid_is_still_stored_even_though_it_is_not_shown(self):
+        """Dropping it from the interface must not drop it from the record,
+        or turning it back on later means refetching every account."""
+        self.link.rapid_rating = 1650
+        self.link.rapid_games = 40
+        self.link.save()
+        self.link.refresh_from_db()
+        self.assertEqual(self.link.rapid_rating, 1650)
+        self.assertNotIn('rapid', [r['perf'] for r in self.link.ratings()])
+
+    def test_ranking_uses_blitz(self):
+        self.assertEqual(self.link.ranking_rating, 1500)
+
+    def test_ranking_falls_back_to_bullet_for_a_bullet_only_player(self):
+        """Ranking on blitz alone would leave a pure bullet player off the
+        list entirely, which is worse than ranking them on what they play."""
+        self.link.blitz_rating = None
+        self.link.blitz_games = 0
+        self.link.save()
+        self.assertEqual(self.link.ranking_rating, 1774)
+
+    def test_a_provisional_rating_still_ranks(self):
+        """Unlike best_rating, which excludes provisional ones. Leaving new
+        players out of the rankings until they have thirty games would mean
+        an empty ratings page for months."""
+        self.assertTrue(self.link.blitz_provisional)
+        self.assertIsNotNone(self.link.ranking_rating)
 
     def test_best_rating_ignores_provisional_ones(self):
         """A 2500 after three games is not somebody's strength."""
@@ -391,3 +422,72 @@ class LichessUnlinkTest(TestCase):
         response = self.client.post(reverse('lichess_unlink'), follow=True)
         self.assertContains(response, 'only way to sign in')
         self.assertTrue(LichessAccount.objects.exists())
+
+
+class RankedByLichessTest(TestCase):
+    """The one ordering used by the ratings page, the home page top five, a
+    club's player list and a coach's players.
+
+    It was about to be four copies. Four copies of a rule is exactly how the
+    ELO formula came to disagree with itself (see matches/rating.py), so this
+    pins the behaviour that copies would have drifted on.
+    """
+
+    def _player(self, username, blitz=None, bullet=None, linked=True):
+        _user, member = make_user_and_member(username, assoc=self.assoc)
+        if linked:
+            LichessAccount.objects.create(
+                user=member.user, lichess_id=username, username=username,
+                blitz_rating=blitz, blitz_games=50 if blitz else 0,
+                bullet_rating=bullet, bullet_games=50 if bullet else 0)
+        return member
+
+    def setUp(self):
+        self.assoc = make_association()
+        self.strong = self._player('strong', blitz=2100)
+        self.middle = self._player('middle', blitz=1600)
+        self.bullet_only = self._player('bulletonly', blitz=None, bullet=1800)
+        self.unlinked = self._player('unlinked', linked=False)
+
+    def _order(self):
+        return [m.user.username for m in
+                ranked_by_lichess(Member.objects.filter(association=self.assoc))]
+
+    def test_ordered_by_blitz_descending(self):
+        order = self._order()
+        self.assertLess(order.index('strong'), order.index('middle'))
+
+    def test_a_bullet_only_player_is_ranked_on_bullet(self):
+        """Ranking on blitz alone would drop them off the list entirely."""
+        order = self._order()
+        self.assertLess(order.index('strong'), order.index('bulletonly'))
+        self.assertLess(order.index('bulletonly'), order.index('middle'),
+                        '1800 bullet outranks 1600 blitz')
+
+    def test_a_member_with_no_lichess_account_is_not_dropped(self):
+        order = self._order()
+        self.assertIn('unlinked', order, 'they are still a member')
+
+    def test_the_ordering_asks_the_database_for_nulls_last(self):
+        """THIS TEST EXISTS BECAUSE THE OBVIOUS ONE PROVED NOTHING.
+
+        Asserting that the unrated player comes last passes on SQLite whether
+        or not nulls_last is set, because SQLite sorts NULL last on a
+        descending sort anyway. Production is PostgreSQL, which sorts NULL
+        FIRST, so the obvious test was green while the ratings page would have
+        been topped by players who have no rating at all.
+
+        Verified by removing nulls_last: the row-order test stayed green and
+        only this one went red. Asserting on the compiled SQL is the only
+        check here that means the same thing on both databases.
+        """
+        sql = str(ranked_by_lichess(Member.objects.all()).query).upper()
+        self.assertIn('DESC NULLS LAST', sql,
+                      'without NULLS LAST, PostgreSQL puts unrated players '
+                      'at the TOP of the ratings page')
+
+    def test_the_order_is_stable_between_calls(self):
+        """Two players on the same rating must not swap places on refresh."""
+        self._player('tieA', blitz=1500)
+        self._player('tieB', blitz=1500)
+        self.assertEqual(self._order(), self._order())

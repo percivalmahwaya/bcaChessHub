@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
 from .models import Association
-from members.models import Member
+from members.models import Member, ranked_by_lichess
 from tournaments.models import Tournament
 from matches.models import Match
 
@@ -28,9 +28,10 @@ def association_list(request):
 def association_detail(request, pk):
     assoc = get_object_or_404(Association, pk=pk, is_active=True)
 
-    members = Member.objects.filter(
-        association=assoc, is_active=True
-    ).select_related('user').order_by('-rating')
+    members = ranked_by_lichess(
+        Member.objects.filter(association=assoc, is_active=True)
+        .select_related('user', 'user__lichess')
+    )
 
     top_players = members.filter(role='player')[:8]
 

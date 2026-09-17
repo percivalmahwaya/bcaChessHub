@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block title %}Ratings{% endblock %}
-{% block description %}ELO ratings for chess players in Bulawayo and Matabeleland, updated after every recorded game.{% endblock %}
+{% block description %}Lichess blitz and bullet ratings for chess players in Bulawayo and the surrounding region.{% endblock %}
 
 {% comment %}
   THE most opened page on this site. When Percival described who this is for,
@@ -67,7 +67,8 @@
             <th style="width:3.5rem;">#</th>
             <th>Player</th>
             <th class="hide-phone">Club</th>
-            <th class="r">Rating</th>
+            <th class="r">Blitz</th>
+            <th class="r hide-phone">Bullet</th>
             <th class="hide-phone">Role</th>
           </tr>
         </thead>
@@ -94,9 +95,39 @@
               <div class="tiny muted show-phone">{{ member.association.name }}</div>
             </td>
             <td class="hide-phone small muted">{{ member.association.name }}</td>
-            <td class="r num" style="font-weight:700;">{{ member.rating }}</td>
+            {% comment %}
+              Lichess blitz and bullet. This club's own ELO is deliberately
+              not shown: it still exists and tournament results still move
+              it, but from 2026-09-17 the ratings this site runs on come from
+              Lichess. A question mark marks a provisional rating, which is
+              the honest way to list somebody with nine games rather than
+              either hiding them or implying the number is settled.
+            {% endcomment %}
+            <td class="r num" style="font-weight:700;">
+              {% if member.user.lichess.blitz_rating %}
+                {{ member.user.lichess.blitz_rating }}{% if member.user.lichess.blitz_provisional %}<span class="tiny muted">?</span>{% endif %}
+              {% else %}
+                <span class="muted">&mdash;</span>
+              {% endif %}
+              <div class="tiny muted show-phone">
+                {% if member.user.lichess.bullet_rating %}
+                  {{ member.user.lichess.bullet_rating }} bullet
+                {% endif %}
+              </div>
+            </td>
+            <td class="r num hide-phone">
+              {% if member.user.lichess.bullet_rating %}
+                {{ member.user.lichess.bullet_rating }}{% if member.user.lichess.bullet_provisional %}<span class="tiny muted">?</span>{% endif %}
+              {% else %}
+                <span class="muted">&mdash;</span>
+              {% endif %}
+            </td>
             <td class="hide-phone">
-              <span class="tag tag-quiet">{{ member.get_role_display }}</span>
+              {% if member.user.lichess %}
+                <span class="tag tag-quiet">{{ member.get_role_display }}</span>
+              {% else %}
+                <span class="tag tag-quiet">No Lichess</span>
+              {% endif %}
             </td>
           </tr>
           {% endwith %}
@@ -111,8 +142,8 @@
         {% if search or assoc_filter %}
           Try a different name, or clear the filters.
         {% else %}
-          A player appears here once they have a recorded game. Ratings come
-          from tournament rounds and from player challenges.
+          A player appears here once they have linked their Lichess account,
+          which takes one tap from their profile.
         {% endif %}
       </div>
     {% endif %}
@@ -121,9 +152,10 @@
   {% include 'partials/pagination.html' %}
 
   <p class="tiny muted" style="margin-top:var(--s-5);max-width:62ch;">
-    Ratings use ELO with a K factor of 32, starting at 1200, and update
-    automatically when a result is recorded. These are this site's own ratings.
-    They are not FIDE ratings.
+    Ratings come from Lichess and are ordered on blitz, or on bullet for a
+    player who only plays bullet. A question mark means Lichess still counts
+    the rating as provisional. Link your Lichess account from your profile to
+    appear here. These are not FIDE ratings.
   </p>
 
 </div>

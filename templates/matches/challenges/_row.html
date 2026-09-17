@@ -19,7 +19,7 @@
       <a href="{% url 'player_profile' other.pk %}" style="font-weight:600;">
         {{ other.user.get_full_name|default:other.user.username }}
       </a>
-      <span class="tiny muted num">({{ other.rating }})</span>
+      <span class="tiny muted num">{{ other.user.lichess.ranking_rating|default:"" }}</span>
       <span class="small muted">
         {% if incoming %}challenged you{% else %}was challenged by you{% endif %}
       </span>

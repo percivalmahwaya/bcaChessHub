@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block title %}{{ member.user.get_full_name|default:member.user.username }}{% endblock %}
-{% block description %}{{ member.user.get_full_name|default:member.user.username }}, rated {{ member.rating }}, {{ member.association.name }}.{% endblock %}
+{% block description %}{{ member.user.get_full_name|default:member.user.username }}, {{ member.association.name }}.{% endblock %}
 
 {% comment %}
   A player's public page, linked from every rating on the site.
@@ -53,9 +53,22 @@
               <a href="{% url 'player_profile' member.coach.pk %}">{{ member.coach.user.get_full_name|default:member.coach.user.username }}</a>
             {% endif %}
           </p>
+          {% comment %}
+            Lichess blitz is the headline figure now. Somebody with no Lichess
+            account gets a prompt rather than a blank space, because a blank
+            space where a rating should be reads as a broken page.
+          {% endcomment %}
           <p style="margin:var(--s-3) 0 0;">
-            <span class="num" style="font-size:var(--t-2xl);font-weight:700;color:var(--bch-terracotta);">{{ member.rating }}</span>
-            <span class="tiny muted" style="letter-spacing:.08em;text-transform:uppercase;">ELO</span>
+            {% if member.user.lichess.ranking_rating %}
+              <span class="num" style="font-size:var(--t-2xl);font-weight:700;color:var(--bch-terracotta);">{{ member.user.lichess.ranking_rating }}</span>
+              <span class="tiny muted" style="letter-spacing:.08em;text-transform:uppercase;">
+                {% if member.user.lichess.blitz_rating %}blitz{% else %}bullet{% endif %}
+              </span>
+            {% elif is_own_profile %}
+              <a class="btn btn-primary btn-sm" href="{% url 'lichess_start' %}">Link Lichess for a rating</a>
+            {% else %}
+              <span class="tag tag-quiet">No Lichess account linked</span>
+            {% endif %}
           </p>
         </div>
 
@@ -147,7 +160,7 @@
                     <a href="{% url 'player_profile' match.opponent.pk %}" style="font-weight:600;">
                       {{ match.opponent.user.get_full_name|default:match.opponent.user.username }}
                     </a>
-                    <span class="tiny muted num">({{ match.opponent.rating }})</span>
+
                   {% else %}
                     <span class="muted">bye</span>
                   {% endif %}
@@ -252,10 +265,8 @@
               <span class="num">{{ member.user.lichess.wins }}</span> won,
               <span class="num">{{ member.user.lichess.draws }}</span> drawn,
               <span class="num">{{ member.user.lichess.losses }}</span> lost.
-              These are Lichess ratings, earned online. The
-              <strong>{{ member.rating }}</strong> above is this club's own
-              rating, from games played over the board. The two are not
-              comparable and are never mixed.
+              These are Lichess ratings, earned online, and they are the
+              ratings this club uses. They are not FIDE ratings.
             </p>
           </div>
         </div>

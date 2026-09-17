@@ -48,7 +48,7 @@
              style="font-weight:700;font-size:var(--t-lg);">
             {{ match.white_player.user.get_full_name|default:match.white_player.user.username }}
           </a>
-          <div class="tiny muted">White, ELO <span class="num">{{ match.white_player.rating }}</span></div>
+          <div class="tiny muted">White{% if match.white_player.user.lichess.ranking_rating %}, <span class="num">{{ match.white_player.user.lichess.ranking_rating }}</span>{% endif %}</div>
         </div>
 
         <div class="c" style="flex:0 0 auto;padding:0 var(--s-4);">
@@ -75,7 +75,7 @@
                style="font-weight:700;font-size:var(--t-lg);">
               {{ match.black_player.user.get_full_name|default:match.black_player.user.username }}
             </a>
-            <div class="tiny muted">Black, ELO <span class="num">{{ match.black_player.rating }}</span></div>
+            <div class="tiny muted">Black{% if match.black_player.user.lichess.ranking_rating %}, <span class="num">{{ match.black_player.user.lichess.ranking_rating }}</span>{% endif %}</div>
           {% else %}
             <span class="muted">Bye</span>
           {% endif %}

@@ -3,9 +3,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import F, Q
+from django.db.models.functions import Coalesce
 import time
-from .models import Member, RatingHistory
+from .models import Member, RatingHistory, ranked_by_lichess
 from .forms import SignupForm, ProfileEditForm
 from associations.models import Association
 from matches.models import Match
@@ -104,10 +105,9 @@ def dashboard(request):
 
     coached_players = None
     if member.role == 'coach':
-        coached_players = (
+        coached_players = ranked_by_lichess(
             Member.objects.filter(coach=member, is_active=True)
-            .select_related('user')
-            .order_by('-rating')
+            .select_related('user', 'user__lichess')
         )
 
     # Annotate each match from this member's point of view, rather than
@@ -668,9 +668,22 @@ def rankings(request):
     assoc_filter = request.GET.get('association')
     search       = request.GET.get('q', '').strip()
 
-    qs = Member.objects.select_related('user', 'association').filter(
-        role='player', is_active=True
-    ).order_by('-rating')
+    # RANKED ON LICHESS, not on this club's own ELO.
+    #
+    # Percival's call, 2026-09-17: blitz and bullet from Lichess are the
+    # ratings this site runs on for now. The club ELO still exists and
+    # tournament results still move it, but it is no longer shown anywhere a
+    # player looks, so no rating history is lost if this is reversed.
+    #
+    # Blitz decides the order, falling back to bullet for somebody who only
+    # plays bullet: ranking on blitz alone would leave a pure bullet player
+    # off the list entirely. Members with no Lichess account have no rating
+    # to rank on and sort last rather than being hidden, because they are
+    # still members and the fix is one button on their profile.
+    qs = ranked_by_lichess(
+        Member.objects.select_related('user', 'association', 'user__lichess')
+        .filter(role='player', is_active=True)
+    )
 
     if assoc_filter:
         qs = qs.filter(association__pk=assoc_filter)

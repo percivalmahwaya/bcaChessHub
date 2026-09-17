@@ -146,7 +146,7 @@
                   </a>
                   <div class="tiny muted">{{ member.get_role_display }}</div>
                 </td>
-                <td class="r num" style="font-weight:700;">{{ member.rating }}</td>
+                <td class="r num" style="font-weight:700;">{{ member.user.lichess.ranking_rating|default:"&mdash;" }}</td>
               </tr>
               {% endfor %}
             </tbody>

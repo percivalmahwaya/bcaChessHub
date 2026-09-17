@@ -140,7 +140,7 @@
                   <div style="font-weight:600;">{{ m.user.get_full_name|default:m.user.username }}</div>
                   <div class="tiny muted">{{ m.association.name }}</div>
                 </td>
-                <td class="r num" style="font-weight:700;">{{ m.rating }}</td>
+                <td class="r num" style="font-weight:700;">{{ m.user.lichess.ranking_rating|default:"&mdash;" }}</td>
               </tr>
             {% endfor %}
             </tbody>
