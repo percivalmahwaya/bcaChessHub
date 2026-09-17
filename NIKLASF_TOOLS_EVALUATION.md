@@ -196,6 +196,55 @@ that just took a week to stabilise.
 
 ---
 
+---
+
+## STATUS as of 2026-09-17 — what was actually done
+
+This report is an index, and an index rots. Updated in place rather than
+written again.
+
+| # | recommendation | status |
+|---|---|---|
+| 1 | Add a `LICENSE` file | **OPEN.** Percival's call, deferred 2026-09-17. Note the stakes rose: python-chess (GPL-3.0) is now a dependency of this public, unlicensed repo. |
+| 2 | `pip install chess`; parse and validate imported PGNs | **DONE.** `matches/replay.py`; `link_lichess` refuses an unreadable record and flags one that stops early. |
+| 3 | De-duplicate `K = 32` | **DONE**, and it was hiding a live bug. See below. |
+| 4 | Extract ECO/opening into `Match` | **DONE.** `Match.eco`, `Match.opening`, migration `0006`. |
+| 5 | Board diagrams in tournament print reports | **OPEN.** `chess.svg.board()` is available now that python-chess is installed. |
+| 6 | Vendor a current chess.js locally | **OBSOLETE, and bettered.** chess.js, jQuery and chessboard.js were all deleted on 2026-09-17; the PGN is parsed server-side and the board is a CSS grid. No frontend chess dependency remains to vendor. |
+| 7 | Glicko-2 instead of Elo | **OPEN.** `matches/rating.py` is now the single seam to change. |
+
+### What item 3 turned out to be hiding
+
+The report said the duplication was "worth fixing regardless of which rating
+system wins". It was worse than duplication. There were **four** copies by
+2026-09-17, not three, and two had already drifted:
+
+- `def _update_elo_ratings(self, K=32)` reassigned `K = 32` on its first line,
+  so the parameter was **dead**.
+- `Challenge.challenger_elo_delta` computed a **different number** from the one
+  applied to the rating, through operator precedence:
+
+  ```python
+  K * (1 if win else (0.5 if draw else 0) - expected)
+  ```
+
+  `- expected` binds inside the `else` branch, so the win case is a bare `1`.
+  **Every challenge win displayed +32** whatever the opponent's strength. A
+  1200 beating a 1000 was shown +32 and actually given +8. Draws and losses
+  were right, which is why it survived.
+
+`delta()` is now derived from `new_rating()` rather than recomputed, so the two
+cannot disagree again, and the challenger's delta is stored at the moment it is
+applied.
+
+### One thing this report did not anticipate
+
+python-chess **stops at the first illegal move** and returns the moves before
+it as though the game simply ended there, recording the problem in
+`game.errors`. Nothing in the "verified" section below caught that, because
+every PGN tested was valid. A corrupt record renders as a clean, plausible,
+shorter game. `replay()` reports it now.
+
 ## What was verified vs what is inferred
 
 **Executed and confirmed:** python-chess 1.11.2 installs cleanly and parses the
