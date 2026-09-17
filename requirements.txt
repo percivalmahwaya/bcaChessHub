@@ -14,3 +14,8 @@ dj-database-url>=2.1
 django-anymail[brevo]>=11.0
 pyotp>=2.9
 qrcode[pil]>=7.4
+# PGN parsing for the game viewer. A server dependency added deliberately to
+# remove three client ones: the viewer used to pull jQuery, chess.js and
+# chessboard.js from three CDNs, about 190 KB, to replay a game whose moves
+# never change. Pure Python, no build step.
+chess>=1.11

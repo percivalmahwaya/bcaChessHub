@@ -1,260 +1,315 @@
 {% extends 'base.html' %}
-{% block title %}
-  {{ match.white_player.user.get_full_name|default:match.white_player.user.username }} vs
-  {% if match.black_player %}{{ match.black_player.user.get_full_name|default:match.black_player.user.username }}{% else %}Bye{% endif %}
-   — ChessHub
-{% endblock %}
 
-{% block extra_head %}
-{% if match.pgn %}
-<link rel="stylesheet"
-      href="https://unpkg.com/chessboardjs@1.0.0/www/css/chessboard-1.0.0.min.css">
-<style>
-  #board .square-55d63 { border-radius: 2px; }
-  .move-btn { cursor: pointer; padding: 1px 6px; border-radius: 3px; transition: background 0.1s; }
-  .move-btn:hover { background: rgba(233,69,96,0.15); }
-  .move-btn.active { background: var(--chess-accent) !important; color: #fff !important; }
-</style>
-{% endif %}
-{% endblock %}
+{% block title %}{{ match.white_player.user.get_full_name|default:match.white_player.user.username }} against {{ match.black_player.user.get_full_name|default:match.black_player.user.username }}{% endblock %}
+
+{% comment %}
+  The game viewer, rebuilt without a single third-party library.
+
+  IT USED TO COST ROUGHLY 190 KB BEFORE A PIECE APPEARED: jQuery, chess.js and
+  chessboard.js from three different CDNs, plus twelve piece images from a
+  fourth, to replay a game whose moves were fixed the moment it ended. The PGN
+  is parsed on the server now, once, and the page ships a list of positions.
+  See matches/replay.py for the reasoning.
+
+  The board is a CSS grid. The pieces are six flat silhouettes drawn in the
+  same language as the brand mark, inlined once as SVG symbols and referenced
+  from whichever squares need them. Chess glyphs were not an option: the house
+  rules forbid them because U+2654 and its neighbours fall back to empty boxes
+  on the handsets this site is opened on, which on a chessboard means an empty
+  board.
+
+  ONE MORE DEAD-VARIABLE BUG FIXED. The highlight marking the move you were
+  looking at was background:var(--chess-accent) !important, and that variable
+  went with the inline stylesheet in 72e42d0. An undefined custom property
+  invalidates the declaration, so there was no highlight at all and the move
+  list gave no indication of where you were in the game. The winning digit in
+  the score used the same dead variable.
+{% endcomment %}
 
 {% block content %}
-<div class="container mt-4 mb-5">
+<div class="wrap page">
 
-  <!-- Breadcrumb -->
-  <div class="text-muted small mb-3">
-    <a href="{% url 'tournament_detail' match.tournament.pk %}" class="text-muted">
-      {{ match.tournament.name }}
-    </a>
-    &rsaquo;
-    <a href="{% url 'tournament_round' match.tournament.pk match.round.number %}" class="text-muted">
-      Round {{ match.round.number }}
-    </a>
-    &rsaquo; Game
-  </div>
+  <p class="tiny muted">
+    <a href="{% url 'tournament_detail' match.tournament.pk %}">{{ match.tournament.name }}</a>
+    {% if match.round %}
+      &middot;
+      <a href="{% url 'tournament_round' match.tournament.pk match.round.number %}">Round {{ match.round.number }}</a>
+    {% endif %}
+    {% if match.board_number %}&middot; Board {{ match.board_number }}{% endif %}
+  </p>
 
-  <!-- Match header card -->
-  <div class="card p-4 mb-4">
-    <div class="row align-items-center text-center g-3">
+  {# ---------------------------------------------------------- the result #}
+  <div class="panel" style="margin-bottom:var(--s-5);">
+    <div class="panel-body">
+      <div class="between">
 
-      <!-- White player -->
-      <div class="col">
-        <a href="{% url 'player_profile' match.white_player.pk %}"
-           class="fw-bold fs-5 text-decoration-none">
-          {{ match.white_player.user.get_full_name|default:match.white_player.user.username }}
-        </a>
-        <div class="text-muted small mt-1">♔ White &nbsp;·&nbsp; {{ match.white_player.rating }} ELO</div>
-      </div>
+        <div style="flex:1 1 10rem;">
+          <a href="{% url 'player_profile' match.white_player.pk %}"
+             style="font-weight:700;font-size:var(--t-lg);">
+            {{ match.white_player.user.get_full_name|default:match.white_player.user.username }}
+          </a>
+          <div class="tiny muted">White, ELO <span class="num">{{ match.white_player.rating }}</span></div>
+        </div>
 
-      <!-- Score -->
-      <div class="col-auto">
-        <div class="fw-bold" style="font-size:1.8rem;letter-spacing:4px;">
-          {% if match.result == 'white_win' or match.result == 'black_forfeit' %}
-            <span style="color:var(--chess-accent);">1</span> – 0
-          {% elif match.result == 'black_win' or match.result == 'white_forfeit' %}
-            0 – <span style="color:var(--chess-accent);">1</span>
-          {% elif match.result == 'draw' %}
-            ½ – ½
-          {% else %}
-            <span class="text-muted fs-4">vs</span>
+        <div class="c" style="flex:0 0 auto;padding:0 var(--s-4);">
+          <div class="num" style="font-size:var(--t-2xl);font-weight:700;letter-spacing:.08em;">
+            {% if match.result == 'white_win' %}1 &ndash; 0
+            {% elif match.result == 'black_win' %}0 &ndash; 1
+            {% elif match.result == 'draw' %}&frac12; &ndash; &frac12;
+            {% elif match.result == 'white_forfeit' %}0 &ndash; 1
+            {% elif match.result == 'black_forfeit' %}1 &ndash; 0
+            {% else %}<span class="muted" style="font-size:var(--t-lg);">Not played</span>
+            {% endif %}
+          </div>
+          <div class="tiny muted">{{ match.get_result_display }}</div>
+          {% if match.lichess_game_id %}
+            <a class="btn btn-quiet btn-sm" style="margin-top:var(--s-2);"
+               href="https://lichess.org/{{ match.lichess_game_id }}"
+               target="_blank" rel="noopener">See it on Lichess</a>
           {% endif %}
         </div>
-        <div class="text-muted mt-1" style="font-size:0.75rem;">
-          {{ match.tournament.name }} &middot; R{{ match.round.number }}
-          {% if match.board_number %} &middot; Board {{ match.board_number }}{% endif %}
+
+        <div class="r" style="flex:1 1 10rem;">
+          {% if match.black_player %}
+            <a href="{% url 'player_profile' match.black_player.pk %}"
+               style="font-weight:700;font-size:var(--t-lg);">
+              {{ match.black_player.user.get_full_name|default:match.black_player.user.username }}
+            </a>
+            <div class="tiny muted">Black, ELO <span class="num">{{ match.black_player.rating }}</span></div>
+          {% else %}
+            <span class="muted">Bye</span>
+          {% endif %}
         </div>
-        {% if match.lichess_game_id %}
-        <a href="https://lichess.org/{{ match.lichess_game_id }}" target="_blank" rel="noopener"
-           class="btn btn-outline-secondary btn-sm mt-2" style="font-size:0.78rem;">
-          ♞ View on Lichess
-        </a>
-        {% endif %}
-      </div>
 
-      <!-- Black player -->
-      <div class="col">
-        {% if match.black_player %}
-          <a href="{% url 'player_profile' match.black_player.pk %}"
-             class="fw-bold fs-5 text-decoration-none">
-            {{ match.black_player.user.get_full_name|default:match.black_player.user.username }}
-          </a>
-          <div class="text-muted small mt-1">♚ Black &nbsp;·&nbsp; {{ match.black_player.rating }} ELO</div>
-        {% else %}
-          <span class="text-muted fs-5">Bye</span>
-        {% endif %}
       </div>
-
     </div>
   </div>
 
-  {% if match.pgn %}
-  <!-- ── PGN Board Viewer ─────────────────────────────────────────────── -->
-  <div class="row g-4">
+  {# ---------------------------------------------------------- the viewer #}
+  {% if replay %}
+    {{ replay|json_script:"replay-data" }}
 
-    <!-- Board + controls -->
-    <div class="col-lg-7">
-      <div class="card p-3">
-        <div id="board" style="width:100%;"></div>
+    {% comment %}
+      A record that stops early. python-chess halts at the first illegal move
+      and returns the moves before it, so without this the page would show a
+      shorter game as though that were the whole game, with nothing to say
+      otherwise. Somebody reviewing their own loss would see it end in a
+      position that never happened.
+    {% endcomment %}
+    {% if replay.truncated %}
+      <div class="note note-warning" style="margin-bottom:var(--s-5);">
+        <strong>This record stops early.</strong>
+        The game file contains a move that cannot be played from the position
+        before it, so everything after that point has been left out. The
+        {{ replay.moves|length }} move{{ replay.moves|length|pluralize }} below
+        are what could be read.
+      </div>
+    {% endif %}
 
-        <!-- Navigation controls -->
-        <div class="d-flex gap-2 justify-content-center align-items-center mt-3">
-          <button id="btn-start" class="btn btn-outline-secondary btn-sm px-3" title="First move">⏮</button>
-          <button id="btn-prev"  class="btn btn-outline-secondary btn-sm px-3" title="Previous (←)">◀</button>
-          <span id="move-counter"
-                class="text-muted small px-2"
-                style="min-width:110px;text-align:center;">Start</span>
-          <button id="btn-next" class="btn btn-outline-secondary btn-sm px-3" title="Next (→)">▶</button>
-          <button id="btn-end"  class="btn btn-outline-secondary btn-sm px-3" title="Last move">⏭</button>
+    <div class="row">
+      <div class="col-8">
+        <div class="panel">
+          <div class="panel-body">
+            <div class="board" id="board"></div>
+
+            <div class="toolbar" style="justify-content:center;margin-top:var(--s-4);">
+              <button type="button" class="btn btn-quiet btn-sm" id="go-start">Start</button>
+              <button type="button" class="btn btn-quiet btn-sm" id="go-prev">Back</button>
+              <span class="small muted num" id="move-counter"
+                    style="min-width:9rem;text-align:center;">Starting position</span>
+              <button type="button" class="btn btn-quiet btn-sm" id="go-next">Forward</button>
+              <button type="button" class="btn btn-quiet btn-sm" id="go-end">End</button>
+            </div>
+            <p class="tiny muted c" style="margin:var(--s-2) 0 0;">
+              The left and right arrow keys work too.
+            </p>
+          </div>
         </div>
-        <div class="text-muted text-center mt-1" style="font-size:0.72rem;">
-          Use ← → arrow keys to step through moves
+      </div>
+
+      <div class="col-4">
+        <div class="panel" style="height:100%;">
+          <div class="panel-head">
+            <h3>Moves</h3>
+            <span class="tiny muted num">{{ replay.moves|length }}</span>
+          </div>
+          <div class="panel-body">
+            {% if replay.opening %}
+              <p class="tiny muted" style="margin:0 0 var(--s-3);">{{ replay.opening }}</p>
+            {% endif %}
+            <div class="moves" id="move-list"></div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Move list -->
-    <div class="col-lg-5">
-      <div class="card p-3" style="height:100%;">
-        <h6 class="fw-bold mb-2">Move List</h6>
-        <div id="move-list"
-             style="max-height:440px;overflow-y:auto;
-                    font-family:'Courier New',monospace;font-size:0.88rem;">
-        </div>
+    {% comment %}
+      The pieces. Six silhouettes, each drawn once here and referenced from
+      whichever squares need them, so a board with sixteen pawns costs one
+      pawn's worth of markup. Flat shapes rather than the usual engraved line
+      art, because flat is what the rest of this site is.
+    {% endcomment %}
+    <svg width="0" height="0" style="position:absolute;" aria-hidden="true" focusable="false">
+      <defs>
+        <symbol id="pc-p" viewBox="0 0 45 45">
+          <circle cx="22.5" cy="13.5" r="6"/>
+          <path d="M16.5 19.5h12c0 4.5 3 6.5 4 11.5H12.5c1-5 4-7 4-11.5z"/>
+          <path d="M10.5 31h24v5.5h-24z"/>
+        </symbol>
+        <symbol id="pc-r" viewBox="0 0 45 45">
+          <path d="M12 15.5V9h4.5v3.5h4V9h4v3.5h4V9H33v6.5z"/>
+          <path d="M12 15.5h21v4H12z"/>
+          <path d="M14 19.5h17l-1.5 12h-14z"/>
+          <path d="M10.5 31.5h24v5h-24z"/>
+        </symbol>
+        <symbol id="pc-n" viewBox="0 0 45 45">
+          <path d="M26 6L28.5 12.5C32 14.5 34 19 34 24V32.5H12C12 27 14 23 17.5 20
+                   L13 22 11 18.5 15 15C16.5 11.5 19 9 22.5 8L24 5.5Z"/>
+          <path d="M10.5 32.5h24v4h-24z"/>
+        </symbol>
+        <symbol id="pc-b" viewBox="0 0 45 45">
+          <circle cx="22.5" cy="8.5" r="2.6"/>
+          <path d="M22.5 11.5c5.5 0 9.5 6 9.5 11 0 4-4 6.5-9.5 6.5S13 26.5 13 22.5c0-5 4-11 9.5-11z"/>
+          <path d="M13.5 29h18l1.5 3.5h-21z"/>
+          <path d="M10.5 32.5h24v4h-24z"/>
+        </symbol>
+        <symbol id="pc-q" viewBox="0 0 45 45">
+          <circle cx="8.5" cy="12.5" r="2.4"/>
+          <circle cx="15.5" cy="9.5" r="2.4"/>
+          <circle cx="22.5" cy="8.5" r="2.6"/>
+          <circle cx="29.5" cy="9.5" r="2.4"/>
+          <circle cx="36.5" cy="12.5" r="2.4"/>
+          <path d="M9 15l3.5 12.5h20L36 15l-5.5 7-3-10.5-5 10.5-5-10.5-3 10.5z"/>
+          <path d="M12 27.5h21v4H12z"/>
+          <path d="M10.5 31.5h24v5h-24z"/>
+        </symbol>
+        <symbol id="pc-k" viewBox="0 0 45 45">
+          <path d="M21 4h3v10h-3z"/>
+          <path d="M18 7.5h9v3h-9z"/>
+          <path d="M22.5 13.5c5.5 0 9 3.5 9 8 0 3-2 5.5-3 7.5H16.5c-1-2-3-4.5-3-7.5 0-4.5 3.5-8 9-8z"/>
+          <path d="M13 29h19l1 3.5H12z"/>
+          <path d="M10.5 32.5h24v4h-24z"/>
+        </symbol>
+      </defs>
+    </svg>
+
+  {% elif match.pgn %}
+    <div class="panel">
+      <div class="empty">
+        <strong>The moves could not be read.</strong>
+        A game record is attached to this match but it is not valid PGN, so
+        there is nothing to replay. The result above still stands.
       </div>
     </div>
-
-  </div>
-
-  {% elif match.lichess_game_id %}
-  <!-- ── Lichess embed (no stored PGN) ────────────────────────────────── -->
-  <div class="d-flex justify-content-center">
-    <div class="card p-0 overflow-hidden" style="width:min(500px,100%);">
-      <iframe
-        src="https://lichess.org/embed/game/{{ match.lichess_game_id }}?theme=brown&bg=dark"
-        style="width:100%;height:555px;border:none;"
-        allowtransparency="true">
-      </iframe>
-    </div>
-  </div>
-
   {% else %}
-  <!-- ── No game data ──────────────────────────────────────────────────── -->
-  <div class="text-center py-5 text-muted">
-    <div style="font-size:3rem;">♟</div>
-    <p class="mt-2">No game record is available for this match.</p>
-    <a href="{% url 'tournament_round' match.tournament.pk match.round.number %}"
-       class="btn btn-outline-secondary btn-sm mt-1">← Back to Round</a>
-  </div>
+    <div class="panel">
+      <div class="empty">
+        <strong>No game record.</strong>
+        Nobody has linked a Lichess game to this match yet. A director can add
+        one from the tournament panel.
+      </div>
+    </div>
   {% endif %}
 
 </div>
 {% endblock %}
 
 {% block extra_js %}
-{% if match.pgn %}
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-<script src="https://unpkg.com/chessboardjs@1.0.0/www/js/chessboard-1.0.0.min.js"></script>
+{% if replay %}
 <script>
+// The whole game viewer. No libraries: the positions were computed on the
+// server, so all this has to do is draw one of them and move between them.
 (function () {
-  const PGN = {{ pgn_json|safe }};
-  if (!PGN) return;
+  var data = JSON.parse(document.getElementById('replay-data').textContent);
+  var board = document.getElementById('board');
+  var list = document.getElementById('move-list');
+  var counter = document.getElementById('move-counter');
+  var at = 0;
 
-  // ── Parse PGN and build position list ─────────────────────────────
-  const game = new Chess();
-  if (!game.load_pgn(PGN)) {
-    document.getElementById('board').innerHTML =
-      '<p class="text-danger p-3">Could not parse PGN.</p>';
-    return;
+  var SYMBOL = {p: 'pc-p', r: 'pc-r', n: 'pc-n', b: 'pc-b', q: 'pc-q', k: 'pc-k'};
+
+  // Build the 64 squares once. Index 0 is a8, which is the order the server
+  // encodes a position in AND the order CSS grid fills cells, so there is no
+  // coordinate arithmetic anywhere in this file.
+  var squares = [];
+  for (var i = 0; i < 64; i++) {
+    var sq = document.createElement('div');
+    var light = ((i >> 3) + (i & 7)) % 2 === 0;
+    sq.className = 'sq ' + (light ? 'sq-l' : 'sq-d');
+    board.appendChild(sq);
+    squares.push(sq);
   }
 
-  const sanMoves = game.history();   // ['e4', 'e5', 'Nf3', ...]
-
-  const positions = [];              // FEN string after each half-move; index 0 = start
-  const walker = new Chess();
-  positions.push(walker.fen());
-  for (const mv of sanMoves) {
-    walker.move(mv);
-    positions.push(walker.fen());
-  }
-
-  let current = 0;
-
-  // ── Board ──────────────────────────────────────────────────────────
-  const board = Chessboard('board', {
-    position: positions[0],
-    pieceTheme: 'https://unpkg.com/chessboardjs@1.0.0/www/img/chesspieces/wikipedia/{piece}.png',
-  });
-
-  // ── Build move list ────────────────────────────────────────────────
-  (function buildMoveList() {
-    const container = document.getElementById('move-list');
-    container.innerHTML = '';
-
-    for (let i = 0; i < sanMoves.length; i += 2) {
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;gap:4px;padding:3px 0;align-items:center;';
-
-      const numEl = document.createElement('span');
-      numEl.textContent = (Math.floor(i / 2) + 1) + '.';
-      numEl.style.cssText = 'width:2.4rem;color:#888;flex-shrink:0;';
-      row.appendChild(numEl);
-
-      [0, 1].forEach(offset => {
-        if (sanMoves[i + offset] === undefined) return;
-        const btn = document.createElement('span');
-        btn.className = 'move-btn';
-        btn.textContent = sanMoves[i + offset];
-        btn.dataset.idx = i + offset + 1;
-        row.appendChild(btn);
-      });
-
-      container.appendChild(row);
+  function draw(index) {
+    var position = data.positions[index];
+    var highlight = data.highlights[index];
+    for (var i = 0; i < 64; i++) {
+      var piece = position.charAt(i);
+      var isWhite = piece !== piece.toLowerCase();
+      var wanted = piece === '.' ? '' : piece;
+      // Only touch the DOM when a square actually changed. A move disturbs at
+      // most four squares, so this leaves sixty alone.
+      if (squares[i].dataset.shows !== wanted) {
+        squares[i].dataset.shows = wanted;
+        squares[i].innerHTML = piece === '.' ? '' :
+          '<svg viewBox="0 0 45 45" class="' + (isWhite ? 'pc-w' : 'pc-b') +
+          '"><use href="#' + SYMBOL[piece.toLowerCase()] + '"/></svg>';
+      }
+      squares[i].classList.remove('sq-from', 'sq-to');
     }
+    if (highlight) {
+      squares[highlight[0]].classList.add('sq-from');
+      squares[highlight[1]].classList.add('sq-to');
+    }
+  }
 
-    container.addEventListener('click', e => {
-      const btn = e.target.closest('.move-btn');
-      if (btn) goTo(parseInt(btn.dataset.idx));
+  (function buildList() {
+    var html = '';
+    for (var i = 0; i < data.moves.length; i += 2) {
+      html += '<div class="moves-row"><span class="moves-no">' + (i / 2 + 1) + '.</span>';
+      for (var side = 0; side < 2; side++) {
+        if (data.moves[i + side] === undefined) { break; }
+        html += '<span class="mv" data-to="' + (i + side + 1) + '">' +
+                data.moves[i + side] + '</span>';
+      }
+      html += '</div>';
+    }
+    list.innerHTML = html;
+    list.addEventListener('click', function (e) {
+      var mv = e.target.closest('.mv');
+      if (mv) { go(parseInt(mv.dataset.to, 10)); }
     });
   })();
 
-  // ── Navigation ─────────────────────────────────────────────────────
-  function highlightMove(idx) {
-    document.querySelectorAll('.move-btn').forEach(btn => {
-      btn.classList.toggle('active', parseInt(btn.dataset.idx) === idx);
-    });
-    const active = document.querySelector('.move-btn.active');
-    if (active) active.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }
+  function go(index) {
+    at = Math.max(0, Math.min(index, data.positions.length - 1));
+    draw(at);
 
-  function updateCounter() {
-    const el = document.getElementById('move-counter');
-    if (current === 0) {
-      el.textContent = 'Start';
-    } else {
-      const moveNum = Math.ceil(current / 2);
-      const side    = current % 2 === 1 ? 'White' : 'Black';
-      el.textContent = 'Move ' + moveNum + ' (' + side + ')';
+    var moves = list.querySelectorAll('.mv');
+    for (var i = 0; i < moves.length; i++) {
+      var on = parseInt(moves[i].dataset.to, 10) === at;
+      moves[i].classList.toggle('on', on);
+      if (on) { moves[i].scrollIntoView({block: 'nearest'}); }
     }
+
+    counter.textContent = at === 0 ? 'Starting position' :
+      'Move ' + Math.ceil(at / 2) + (at % 2 === 1 ? ', White' : ', Black');
   }
 
-  function goTo(idx) {
-    current = Math.max(0, Math.min(idx, positions.length - 1));
-    board.position(positions[current], false);
-    highlightMove(current);
-    updateCounter();
-  }
+  document.getElementById('go-start').onclick = function () { go(0); };
+  document.getElementById('go-prev').onclick  = function () { go(at - 1); };
+  document.getElementById('go-next').onclick  = function () { go(at + 1); };
+  document.getElementById('go-end').onclick   = function () { go(data.positions.length - 1); };
 
-  document.getElementById('btn-start').addEventListener('click', () => goTo(0));
-  document.getElementById('btn-prev').addEventListener('click',  () => goTo(current - 1));
-  document.getElementById('btn-next').addEventListener('click',  () => goTo(current + 1));
-  document.getElementById('btn-end').addEventListener('click',   () => goTo(positions.length - 1));
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'ArrowLeft')  goTo(current - 1);
-    if (e.key === 'ArrowRight') goTo(current + 1);
+  document.addEventListener('keydown', function (e) {
+    // Left alone while somebody is typing, so the arrow keys still move a
+    // cursor in a search box rather than jumping the board.
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) { return; }
+    if (e.key === 'ArrowLeft')  { go(at - 1); e.preventDefault(); }
+    if (e.key === 'ArrowRight') { go(at + 1); e.preventDefault(); }
   });
 
+  go(0);
 })();
 </script>
 {% endif %}

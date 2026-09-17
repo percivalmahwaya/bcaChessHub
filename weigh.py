@@ -62,6 +62,17 @@ PAGES = [
     ("dashboard",         "/dashboard/",              True),
     ("notifications",     "/notifications/",          True),
     ("challenges",        "/matches/challenges/",     True),
+
+    # The pages migrated on 2026-09-17. They were the last five on Bootstrap
+    # and, being behind a login, were the ones nobody was measuring, which is
+    # part of why three dead-variable bugs sat on them for four days. A page
+    # that is never weighed is a page nobody is looking at.
+    ("members admin",     "/rankings/manage/",        True),
+    ("stats",             "/rankings/admin/stats/",   True),
+    ("tournament manage", "/tournaments/1/manage/",   True),
+    ("tournament form",   "/tournaments/create/",     True),
+    ("game viewer",       "/matches/1/",              False),
+    ("print report",      "/tournaments/1/export/print/", True),
 ]
 
 

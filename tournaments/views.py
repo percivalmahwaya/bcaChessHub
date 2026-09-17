@@ -561,16 +561,39 @@ def export_print(request, pk):
     """Print-friendly full tournament report (browser Print → Save as PDF)."""
     tournament = get_object_or_404(Tournament.objects.select_related('association'), pk=pk)
     from .services import compute_standings, compute_crosstable
-    standings  = compute_standings(tournament)
-    crosstable = compute_crosstable(tournament)
+
+    # ONE REPORT PER SECTION, not one report.
+    #
+    # Sections shipped on 2026-09-16 and this view was missed, so a tournament
+    # split into Open, Ladies and Developmental printed a SINGLE standings
+    # table mixing all three, and a single crosstable whose cells mostly could
+    # never be filled because those players never meet. That printed sheet is
+    # the prize list read out at the end of the day, so it is the one place
+    # the mixing actually costs somebody a trophy.
+    sections = list(tournament.sections.all()) if hasattr(tournament, 'sections') else []
+    if sections:
+        blocks = [{
+            'title': section.name,
+            'eligibility': section.eligibility,
+            'standings': compute_standings(tournament, section=section),
+            'crosstable': compute_crosstable(tournament, section=section),
+        } for section in sections]
+    else:
+        blocks = [{
+            'title': '',
+            'eligibility': '',
+            'standings': compute_standings(tournament),
+            'crosstable': compute_crosstable(tournament),
+        }]
+
     rounds = tournament.rounds.prefetch_related(
         'matches__white_player__user',
         'matches__black_player__user',
     ).order_by('number')
     return render(request, 'tournaments/print.html', {
         'tournament': tournament,
-        'standings': standings,
-        'crosstable': crosstable,
+        'blocks': blocks,
+        'sectioned': bool(sections),
         'rounds': rounds,
     })
 

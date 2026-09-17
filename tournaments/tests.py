@@ -360,3 +360,65 @@ class SectionsLockOnceRoundsStart(TestCase):
                                     'section_pk': self.section.pk}, follow=True)
         self.assertEqual(self.tournament.registrations.count(), before)
         self.assertFalse(self.tournament.registrations.exclude(section=None).exists())
+
+
+class PrintedReportRespectsSections(TestCase):
+    """The printed report is the prize list read out at the end of the day.
+
+    Sections shipped on 2026-09-16 and export_print was missed, so a
+    tournament split into Open, Ladies and Developmental printed ONE merged
+    standings table. That sheet decides who is called up for a trophy, which
+    makes it the one place the merge actually costs somebody something.
+    """
+
+    def setUp(self):
+        self.assoc = make_assoc()
+        self.tournament = make_tournament(self.assoc)
+        self.open_section = Section.objects.create(
+            tournament=self.tournament, name='Open')
+        self.ladies = Section.objects.create(
+            tournament=self.tournament, name='Ladies',
+            eligibility='Open to women and girls')
+
+        self.in_open = make_member('open_player', rating=1800, assoc=self.assoc)
+        self.in_ladies = make_member('ladies_player', rating=1400, assoc=self.assoc)
+        TournamentRegistration.objects.create(
+            tournament=self.tournament, player=self.in_open,
+            status='confirmed', section=self.open_section)
+        TournamentRegistration.objects.create(
+            tournament=self.tournament, player=self.in_ladies,
+            status='confirmed', section=self.ladies)
+
+        self.url = reverse('export_print', args=[self.tournament.pk])
+
+    def test_each_section_gets_its_own_standings_table(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode()
+        self.assertIn('Open, final standings', body)
+        self.assertIn('Ladies, final standings', body)
+        self.assertNotIn('>Final standings', body,
+                         'a single merged table must not also be printed')
+
+    def test_a_section_prints_who_may_enter_it(self):
+        response = self.client.get(self.url)
+        self.assertContains(response, 'Open to women and girls')
+
+    def test_a_tournament_with_no_sections_still_prints_one_table(self):
+        """The other direction: sections are optional and every tournament
+        that ran before they existed must print exactly as it always did."""
+        plain = make_tournament(self.assoc)
+        plain.name = 'No Sections Open'
+        plain.save()
+        response = self.client.get(reverse('export_print', args=[plain.pk]))
+        body = response.content.decode()
+        self.assertIn('Final standings', body)
+        self.assertNotIn(', final standings', body)
+
+    def test_the_report_carries_the_current_name_of_the_site(self):
+        """It said ChessHub for four days after the rename, on the one
+        artefact of this system that leaves the building on paper."""
+        response = self.client.get(self.url)
+        body = response.content.decode()
+        self.assertIn('Bulawayo Chess Hub', body)
+        self.assertNotIn('>ChessHub', body)

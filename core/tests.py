@@ -182,11 +182,12 @@ class HouseRules(TestCase):
         "[\U0001F300-\U0001FAFF\U00002600-\U000027BF\U0001F000-\U0001F0FF"
         "\U0000FE0F\U00002B00-\U00002BFF\U00002190-\U000021FF♔-♟]")
 
-    NOT_YET_MIGRATED = {
-        "matches/detail.html",
-        "tournaments/manage.html",
-        "tournaments/print.html",
-        }
+    # EMPTY, as of 2026-09-17. Every template in this project is on the design
+    # system and Bootstrap is gone from the repository. Leave this set here
+    # rather than deleting it: it is the thing that makes the two rules below
+    # apply to everything, and the "already clean" half of the check means a
+    # name put back in without cause fails immediately.
+    NOT_YET_MIGRATED = set()
 
     # Email is a different medium. Mail clients strip stylesheets, so those
     # templates carry inline styles by necessity and are excluded from the

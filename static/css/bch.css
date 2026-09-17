@@ -243,6 +243,11 @@ p  { margin: 0 0 var(--s-4); }
 .tag-open   { background: var(--bch-win); color: #fff; }
 .tag-soon   { background: var(--bch-clay); color: var(--bch-ink); }
 .tag-done   { background: var(--bch-granite); color: var(--bch-bone); }
+/* The quietest variant, for a state that is true but not news: a declined
+   challenge, a bye, somebody's own role. It was used in eleven places across
+   eight templates before it was ever defined, so it had been styling nothing. */
+.tag-quiet  { background: transparent; color: var(--bch-stone);
+              box-shadow: inset 0 0 0 1px var(--bch-clay); }
 
 .muted { color: var(--bch-stone); }
 .small { font-size: var(--t-sm); }
@@ -579,9 +584,12 @@ select {
 /* A real board being replayed, so unlike .board-tint it uses full strength
    square colours. Square, always: aspect-ratio keeps it from collapsing on a
    phone in landscape. */
+/* Capped and centred. Left to fill its column it pushed the move controls
+   below the fold on a laptop, and a board bigger than a real one is not more
+   readable, only more scrolling. */
 .board {
   display: grid; grid-template-columns: repeat(8, 1fr);
-  aspect-ratio: 1; width: 100%;
+  aspect-ratio: 1; width: 100%; max-width: 30rem; margin-inline: auto;
   border: 1px solid var(--bch-granite);
 }
 .sq { position: relative; }
@@ -598,9 +606,13 @@ select {
 /* Piece fills. Drawn as flat silhouettes in the same language as the brand
    mark rather than the usual Cburnett line art, which sits oddly next to
    terracotta and costs twelve image requests. */
-.pc-w { fill: var(--bch-white); stroke: var(--bch-ink); stroke-width: 4;
+/* White needs the outline to survive on a light square, black needs the same
+   stroke so both sets read at the same weight. Thin: these are 45 unit shapes
+   drawn at roughly 40 px on a phone, and a heavy outline swallows the
+   crenellations on a rook. */
+.pc-w { fill: var(--bch-white); stroke: var(--bch-ink); stroke-width: 1.6;
         stroke-linejoin: round; }
-.pc-b { fill: var(--bch-ink); stroke: var(--bch-ink); stroke-width: 4;
+.pc-b { fill: var(--bch-ink); stroke: var(--bch-ink); stroke-width: 1.6;
         stroke-linejoin: round; }
 
 /* ----------------------------------------------------------- move list */

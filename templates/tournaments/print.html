@@ -1,172 +1,274 @@
-<!DOCTYPE html>
+{% comment %}
+  The tournament report, for browser Print then Save as PDF.
+
+  DELIBERATELY SELF CONTAINED. It does not extend base.html and does not load
+  bch.css, for the same reason the email templates do not: print is a
+  different medium. This document gets saved, mailed, and opened on machines
+  that will never reach this server, so its styling travels with it. The
+  palette is still the design system's, typed out rather than referenced.
+
+  THREE THINGS FIXED IN THE MIGRATION:
+
+  1. IT STILL SAID "CHESSHUB". The site was renamed to Bulawayo Chess Hub on
+     2026-09-13 and this file was missed, so the printed report handed to
+     players, parents and sponsors carried the old name for four days. It is
+     the one artefact of this system that leaves the building on paper.
+
+  2. THE TOP THREE PLACES PRINTED AS EMOJI MEDALS, replacing the rank number
+     entirely. On the office laser printers these reports actually come off,
+     and in most PDF font subsets, those glyphs fall back to empty boxes, so
+     first, second and third place printed blank on the prize sheet. Plain
+     numbers, the same fix already made on the ratings page and for the same
+     reason.
+
+  3. IT IGNORED SECTIONS. See the view: a tournament split into Open, Ladies
+     and Developmental printed one merged standings table and one crosstable
+     mixing players who never met. That sheet is the prize list.
+{% endcomment %}<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>{{ tournament.name }} — Report</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ tournament.name }}, tournament report</title>
   <style>
+    /* Design system palette, typed out rather than referenced, because this
+       document has to survive being saved and opened somewhere else. */
+    :root {
+      --ink: #1b1a18;
+      --granite: #3b3a36;
+      --stone: #6b6862;
+      --terracotta: #b85c38;
+      --sand: #e2d8c6;
+      --bone: #f2ece1;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; font-size: 12px; color: #111; background: white; padding: 24px; }
 
-    /* Print controls — hidden when printing */
-    .print-controls {
-      background: #1a1a2e; color: white; padding: 12px 20px;
-      display: flex; justify-content: space-between; align-items: center;
-      margin: -24px -24px 24px -24px;
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 11.5px; line-height: 1.45; color: var(--ink);
+      background: #fff; padding: 24px;
     }
-    .print-controls a { color: #f5a623; text-decoration: none; font-size: 13px; }
-    .print-controls button {
-      background: #e94560; color: white; border: none;
-      padding: 7px 18px; border-radius: 6px; cursor: pointer; font-size: 13px;
+
+    /* Screen only. Hidden the moment anything prints. */
+    .controls {
+      background: var(--ink); color: var(--bone);
+      padding: 12px 20px; margin: -24px -24px 24px;
+      display: flex; justify-content: space-between; align-items: center; gap: 16px;
     }
-    @media print { .print-controls { display: none; } }
+    .controls a { color: var(--sand); text-decoration: none; font-size: 12px; }
+    .controls a:hover { text-decoration: underline; }
+    .controls button {
+      background: var(--terracotta); color: #fff; border: 0;
+      padding: 7px 18px; border-radius: 2px; cursor: pointer;
+      font: inherit; font-size: 12px; font-weight: 600;
+    }
+    @media print { .controls { display: none; } }
 
-    /* Layout */
-    h1 { font-size: 20px; margin-bottom: 2px; }
-    h2 { font-size: 14px; margin: 20px 0 8px; border-bottom: 2px solid #1a1a2e; padding-bottom: 4px; }
-    .meta { color: #555; font-size: 11px; margin-bottom: 16px; }
-    .meta span { margin-right: 16px; }
+    h1 { font-size: 19px; letter-spacing: -0.01em; }
+    h2 {
+      font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
+      margin: 22px 0 8px; padding-bottom: 4px;
+      border-bottom: 2px solid var(--ink);
+    }
+    h3 { font-size: 12px; margin: 14px 0 6px; }
 
-    table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
-    th { background: #1a1a2e; color: white; padding: 5px 8px; text-align: left; font-size: 11px; }
-    td { padding: 4px 8px; border-bottom: 1px solid #eee; }
-    tr:nth-child(even) td { background: #f9f9f9; }
+    .meta { color: var(--stone); font-size: 10.5px; margin-bottom: 4px; }
+    .meta span { margin-right: 14px; white-space: nowrap; }
 
-    /* Crosstable */
-    .ct th, .ct td { text-align: center; padding: 4px 6px; font-size: 10px; }
-    .ct td:first-child, .ct th:first-child { text-align: left; min-width: 140px; }
-    .ct-win  { background: #d4edda; }
-    .ct-loss { background: #f8d7da; }
-    .ct-draw { background: #e2e3e5; }
-    .ct-diagonal { background: #333; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+    th {
+      background: var(--ink); color: var(--bone);
+      padding: 5px 8px; text-align: left; font-size: 10px;
+      text-transform: uppercase; letter-spacing: .05em; font-weight: 700;
+    }
+    td { padding: 4px 8px; border-bottom: 1px solid var(--sand); }
+    tr:nth-child(even) td { background: #faf7f1; }
+    .num { font-variant-numeric: tabular-nums; }
+    .c { text-align: center; }
 
-    /* Round sections */
-    .round-header { background: #f0f0f0; padding: 4px 8px; font-weight: bold; font-size: 11px; margin-top: 10px; }
+    /* Crosstable. Square cells, names only in the first column. */
+    .ct th, .ct td { text-align: center; padding: 4px 6px; font-size: 9.5px; }
+    .ct td:first-child, .ct th:first-child,
+    .ct td:nth-child(2), .ct th:nth-child(2) { text-align: left; }
+    .ct td:nth-child(2) { min-width: 130px; }
+    .ct-win { background: #dbe6d8; }
+    .ct-loss { background: #efd9d5; }
+    .ct-draw { background: #e8e5dd; }
+    /* The blocked-out cell where a player meets themselves. The multiplication
+       sign sat on a dark fill in dark ink, so it was invisible. */
+    .ct-diagonal { background: var(--granite); color: var(--bone); }
 
-    @page { margin: 15mm; size: A4 landscape; }
+    .round-header {
+      background: var(--bone); border-left: 3px solid var(--terracotta);
+      padding: 4px 8px; font-weight: 700; font-size: 10.5px; margin-top: 12px;
+    }
+    .quiet { color: var(--stone); }
+    .foot {
+      margin-top: 22px; padding-top: 8px; border-top: 1px solid var(--sand);
+      color: var(--stone); font-size: 9.5px; text-align: right;
+    }
+
+    @page { margin: 14mm; size: A4 landscape; }
     @media print {
-      h2 { page-break-before: auto; }
-      .round-section { page-break-inside: avoid; }
+      body { padding: 0; }
+      .round-section, .section-block { break-inside: avoid; }
+      thead { display: table-header-group; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Print controls bar (screen only) -->
-  <div class="print-controls">
-    <span>♟ ChessHub — Tournament Report</span>
-    <div style="display:flex;gap:12px;align-items:center;">
-      <a href="{% url 'tournament_detail' tournament.pk %}">← Back to tournament</a>
-      <button onclick="window.print()">🖨 Print / Save as PDF</button>
+  <div class="controls">
+    <span><strong>Bulawayo Chess Hub</strong>, tournament report</span>
+    <div style="display:flex;gap:14px;align-items:center;">
+      <a href="{% url 'tournament_detail' tournament.pk %}">Back to the tournament</a>
+      <button type="button" onclick="window.print()">Print or save as PDF</button>
     </div>
   </div>
 
-  <!-- Tournament header -->
   <h1>{{ tournament.name }}</h1>
   <div class="meta">
-    <span>📍 {{ tournament.location }}</span>
-    <span>📅 {{ tournament.start_date|date:"d M Y" }} – {{ tournament.end_date|date:"d M Y" }}</span>
-    <span>🏛 {{ tournament.association.name }}</span>
-    <span>Format: {{ tournament.get_format_display }}</span>
-    <span>Rounds: {{ tournament.num_rounds }}</span>
-    <span>Status: {{ tournament.get_status_display }}</span>
+    <span>{{ tournament.location }}</span>
+    <span>{{ tournament.start_date|date:"d M Y" }} to {{ tournament.end_date|date:"d M Y" }}</span>
+    <span>{{ tournament.association.name }}</span>
+  </div>
+  <div class="meta">
+    <span>{{ tournament.get_format_display }}</span>
+    <span>{{ tournament.num_rounds }} round{{ tournament.num_rounds|pluralize }}</span>
+    <span>{{ tournament.get_status_display }}</span>
+    {% if sectioned %}<span>{{ blocks|length }} sections</span>{% endif %}
   </div>
 
-  <!-- ── Final Standings ─────────────────────────────────── -->
-  <h2>Final Standings</h2>
-  {% if standings %}
-  <table>
-    <thead>
-      <tr>
-        <th style="width:50px;">Rank</th>
-        <th>Player</th>
-        <th>Association</th>
-        <th style="width:60px;text-align:center;">Score</th>
-        <th style="width:70px;text-align:center;">ELO Rating</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for entry in standings %}
-      <tr>
-        <td style="text-align:center;font-weight:bold;">
-          {% if entry.rank == 1 %}🥇{% elif entry.rank == 2 %}🥈{% elif entry.rank == 3 %}🥉{% else %}{{ entry.rank }}{% endif %}
-        </td>
-        <td>{{ entry.player.user.get_full_name|default:entry.player.user.username }}</td>
-        <td style="color:#555;">{{ entry.player.association.name }}</td>
-        <td style="text-align:center;font-weight:bold;">{{ entry.score }}</td>
-        <td style="text-align:center;">{{ entry.player.rating }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p style="color:#888;">No standings available yet.</p>
-  {% endif %}
+  {% comment %}
+    One standings table and one crosstable PER SECTION. A section is a
+    separate competition awarding its own prizes, so merging them here would
+    print a prize list naming the wrong winners.
+  {% endcomment %}
+  {% for block in blocks %}
+    <div class="section-block">
 
-  <!-- ── Crosstable ──────────────────────────────────────── -->
-  {% if crosstable.players %}
-  <h2>Crosstable</h2>
-  <table class="ct">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Player</th>
-        {% for p in crosstable.players %}<th>{{ forloop.counter }}</th>{% endfor %}
-        <th>Pts</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in crosstable.rows %}
-      <tr>
-        <td>{{ row.rank }}</td>
-        <td>{{ row.player.user.get_full_name|default:row.player.user.username }}</td>
-        {% for cell in row.cells %}
-        <td class="ct-{{ cell.type }}">{{ cell.value }}</td>
-        {% endfor %}
-        <td style="font-weight:bold;">{{ row.score }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% endif %}
+      <h2>
+        {% if block.title %}{{ block.title }}, final standings{% else %}Final standings{% endif %}
+      </h2>
+      {% if block.eligibility %}
+        <p class="quiet" style="margin-bottom:6px;">{{ block.eligibility }}</p>
+      {% endif %}
 
-  <!-- ── Round-by-Round Pairings ────────────────────────── -->
-  {% if rounds %}
-  <h2>Round-by-Round Pairings</h2>
-  {% for round_obj in rounds %}
-  <div class="round-section">
-    <div class="round-header">Round {{ round_obj.number }}{% if round_obj.is_complete %} — Complete{% else %} — In Progress{% endif %}</div>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:40px;">Board</th>
-          <th>White</th>
-          <th>Black</th>
-          <th style="width:100px;text-align:center;">Result</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for match in round_obj.matches.all %}
-        <tr>
-          <td style="text-align:center;">{{ match.board_number }}</td>
-          <td>{{ match.white_player.user.get_full_name|default:match.white_player.user.username }}</td>
-          <td>{% if match.black_player %}{{ match.black_player.user.get_full_name|default:match.black_player.user.username }}{% else %}<em style="color:#999;">BYE</em>{% endif %}</td>
-          <td style="text-align:center;">
-            {% if match.result == 'white_win' %}1 – 0
-            {% elif match.result == 'black_win' %}0 – 1
-            {% elif match.result == 'draw' %}½ – ½
-            {% else %}<span style="color:#999;">–</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+      {% if block.standings %}
+        <table>
+          <thead>
+            <tr>
+              <th style="width:46px;">Place</th>
+              <th>Player</th>
+              <th>Club</th>
+              <th class="c" style="width:56px;">Score</th>
+              <th class="c" style="width:64px;">ELO</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in block.standings %}
+              <tr>
+                {% comment %}
+                  A number, never a medal glyph. The old version replaced the
+                  rank outright with U+1F947 and friends for the top three, so
+                  on a laser printer and in most PDF font subsets the first
+                  three places came out blank on the prize sheet.
+                {% endcomment %}
+                <td class="c num" style="font-weight:700;">{{ entry.rank }}</td>
+                <td>{{ entry.player.user.get_full_name|default:entry.player.user.username }}</td>
+                <td class="quiet">{{ entry.player.association.name }}</td>
+                <td class="c num" style="font-weight:700;">{{ entry.score }}</td>
+                <td class="c num">{{ entry.player.rating }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="quiet">No games have been scored in this section yet.</p>
+      {% endif %}
+
+      {% if block.crosstable.players %}
+        <h3>{% if block.title %}{{ block.title }}, crosstable{% else %}Crosstable{% endif %}</h3>
+        <table class="ct">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Player</th>
+              {% for p in block.crosstable.players %}<th>{{ forloop.counter }}</th>{% endfor %}
+              <th>Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in block.crosstable.rows %}
+              <tr>
+                <td class="num">{{ row.rank }}</td>
+                <td>{{ row.player.user.get_full_name|default:row.player.user.username }}</td>
+                {% for cell in row.cells %}
+                  <td class="ct-{{ cell.type }} num">{{ cell.value }}</td>
+                {% endfor %}
+                <td class="num" style="font-weight:700;">{{ row.score }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+
+    </div>
   {% endfor %}
+
+  {% if rounds %}
+    <h2>Pairings, round by round</h2>
+    {% for round_obj in rounds %}
+      <div class="round-section">
+        <div class="round-header">
+          Round {{ round_obj.number }}{% if round_obj.is_complete %}, complete{% else %}, in progress{% endif %}
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:44px;">Board</th>
+              {% if sectioned %}<th style="width:110px;">Section</th>{% endif %}
+              <th>White</th>
+              <th>Black</th>
+              <th class="c" style="width:88px;">Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for match in round_obj.matches.all %}
+              <tr>
+                <td class="c num">{{ match.board_number|default:"" }}</td>
+                {% if sectioned %}
+                  <td class="quiet">{{ match.section.name|default:"" }}</td>
+                {% endif %}
+                <td>{{ match.white_player.user.get_full_name|default:match.white_player.user.username }}</td>
+                <td>
+                  {% if match.black_player %}
+                    {{ match.black_player.user.get_full_name|default:match.black_player.user.username }}
+                  {% else %}
+                    <span class="quiet">Bye</span>
+                  {% endif %}
+                </td>
+                <td class="c num">
+                  {% if match.result == 'white_win' %}1 &ndash; 0
+                  {% elif match.result == 'black_win' %}0 &ndash; 1
+                  {% elif match.result == 'draw' %}&frac12; &ndash; &frac12;
+                  {% elif match.result == 'white_forfeit' %}0 &ndash; 1 ff
+                  {% elif match.result == 'black_forfeit' %}1 &ndash; 0 ff
+                  {% else %}<span class="quiet">not played</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endfor %}
   {% endif %}
 
-  <div style="margin-top:24px;color:#aaa;font-size:10px;text-align:right;">
-    Generated by ChessHub · {{ tournament.association.name }} · printed {{ "now"|date:"d M Y" }}
+  <div class="foot">
+    Bulawayo Chess Hub &middot; {{ tournament.association.name }}
+    &middot; printed {% now "d M Y" %}
   </div>
 
 </body>

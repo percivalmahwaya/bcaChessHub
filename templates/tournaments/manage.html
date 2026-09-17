@@ -1,255 +1,297 @@
 {% extends 'base.html' %}
-{% block title %}Manage — {{ tournament.name }}{% endblock %}
+
+{% block title %}Running {{ tournament.name }}{% endblock %}
+
+{% comment %}
+  The hardest page on the site to get right, because of where it is used: a
+  director standing up in a hall on a Saturday, on a phone, with players
+  waiting to hear a result recorded. Everything here is built for that.
+
+  ORDERED BY WHAT IS HAPPENING NOW. The round being played is first and
+  widest. Setup that only matters before round one is in the narrow column
+  and disappears once the first pairing exists.
+
+  THREE BOOTSTRAP BEHAVIOURS REPLACED WITH details ELEMENTS, because all
+  three would have broken outright the moment Bootstrap's JavaScript left:
+  the export menu, the per-match Lichess form, and the completed-round
+  results. The export menu is the worst of them, since losing it means the
+  standings CSV, the pairings CSV and the printable report all become
+  unreachable from the only page that links to them.
+
+  ICONS REMOVED. The Edit and Export buttons carried <i class="bi bi-..."></i>
+  from Bootstrap Icons, a font this project stopped loading in the redesign.
+  They have been drawing nothing ever since. So has badge-status-*, which was
+  never defined in the new stylesheet, and --chess-accent on the seed input.
+
+  EVERY ACTION IS A WORD. Recording a result was a button labelled U+2713 and
+  so was confirming an entry. On the handsets this is opened on those fall
+  back to an empty box, so a director was pressing unlabelled squares to
+  commit results that change ratings.
+{% endcomment %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="wrap page">
 
-  <!-- Header -->
-  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-4">
+  {# ------------------------------------------------------------- header #}
+  <div class="between" style="margin-bottom:var(--s-5);">
     <div>
-      <a href="{% url 'tournament_detail' tournament.pk %}" class="text-muted small">&larr; Back to Tournament</a>
-      <h3 class="fw-bold mt-1 mb-0">{{ tournament.name }}</h3>
-      <div class="text-muted small">{{ tournament.association.name }} &middot; Director Panel</div>
+      <p class="tiny muted" style="margin:0;">
+        <a href="{% url 'tournament_detail' tournament.pk %}">{{ tournament.name }}</a>
+      </p>
+      <h1 class="page-title">Running the tournament</h1>
+      <p class="page-sub" style="margin:0;">
+        {{ tournament.association.name }}
+        {% if tournament.status == 'in_progress' %}
+          <span class="tag tag-live">{{ tournament.get_status_display }}</span>
+        {% elif tournament.status == 'registration_open' %}
+          <span class="tag tag-open">{{ tournament.get_status_display }}</span>
+        {% elif tournament.status == 'completed' %}
+          <span class="tag tag-done">{{ tournament.get_status_display }}</span>
+        {% else %}
+          <span class="tag tag-soon">{{ tournament.get_status_display }}</span>
+        {% endif %}
+      </p>
     </div>
-    <div class="d-flex align-items-center gap-2">
-      <span class="badge fs-6 rounded-pill badge-status-{{ tournament.status }}">
-        {{ tournament.get_status_display }}
-      </span>
-      <a href="{% url 'tournament_edit' tournament.pk %}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-pencil"></i> Edit
-      </a>
-      <div class="dropdown">
-        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
-          <i class="bi bi-download"></i> Export
-        </button>
-        <ul class="dropdown-menu dropdown-menu-end">
-          <li><a class="dropdown-item" href="{% url 'export_print' tournament.pk %}" target="_blank">🖨 Print / PDF Report</a></li>
-          <li><hr class="dropdown-divider"></li>
-          <li><a class="dropdown-item" href="{% url 'export_standings' tournament.pk %}">📊 Standings CSV</a></li>
-          <li><a class="dropdown-item" href="{% url 'export_pairings' tournament.pk %}">♟ Pairings CSV</a></li>
-        </ul>
-      </div>
+
+    <div class="toolbar">
+      <a class="btn btn-quiet btn-sm" href="{% url 'tournament_edit' tournament.pk %}">Edit details</a>
+
+      {% comment %}
+        A details element, not a Bootstrap dropdown. The old one needed
+        Bootstrap's JavaScript, so once Bootstrap left this page the three
+        exports below became unreachable from the only page linking to them.
+      {% endcomment %}
+      <details class="panel" style="position:relative;border:0;">
+        <summary class="btn btn-quiet btn-sm" style="list-style:none;">Export</summary>
+        <div class="panel" style="position:absolute;right:0;z-index:20;min-width:13rem;
+                                  box-shadow:0 6px 18px rgba(0,0,0,.14);">
+          <div class="panel-body stack-sm">
+            <a href="{% url 'export_print' tournament.pk %}" target="_blank" rel="noopener">
+              Printable report</a>
+            <a href="{% url 'export_standings' tournament.pk %}">Standings, CSV</a>
+            <a href="{% url 'export_pairings' tournament.pk %}">Pairings, CSV</a>
+          </div>
+        </div>
+      </details>
     </div>
   </div>
 
-  <!-- Flash messages -->
+  <div class="row">
 
-  <div class="row g-4">
+    {# ================================================== the round in play #}
+    <div class="col-8">
 
-    <!-- ── LEFT COLUMN ────────────────────────────────── -->
-    <div class="col-lg-8">
-
-      <!-- ① Status control -->
-      <div class="card p-4 mb-4">
-        <h6 class="fw-bold mb-3">Tournament Status</h6>
-        <div class="d-flex flex-wrap gap-2">
-          {% for val, label in status_choices %}
-          <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="set_status">
-            <input type="hidden" name="status" value="{{ val }}">
-            <button type="submit"
-              class="btn btn-sm {% if tournament.status == val %}btn-chess{% else %}btn-outline-secondary{% endif %}"
-              {% if tournament.status == val %}disabled{% endif %}>
-              {{ label }}
-            </button>
-          </form>
-          {% endfor %}
-        </div>
-        <div class="text-muted small mt-2">
-          Typical flow: Upcoming → Registration Open → In Progress → Completed
-        </div>
-      </div>
-
-      <!-- ② Current round matches + result entry -->
       {% if current_round %}
-      <div class="card p-4 mb-4">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-          <h6 class="fw-bold mb-0">Round {{ current_round.number }} — Record Results</h6>
-          <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="complete_round">
-            <input type="hidden" name="round_pk" value="{{ current_round.pk }}">
-            <button type="submit" class="btn btn-success btn-sm"
-              onclick="return confirm('Mark Round {{ current_round.number }} complete? This cannot be undone.')">
-              ✓ Mark Round {{ current_round.number }} Complete
-            </button>
-          </form>
-        </div>
+        <div class="panel panel-tight" style="margin-bottom:var(--s-5);">
+          <div class="panel-head">
+            <h3>Round {{ current_round.number }}, recording results</h3>
+            <form method="post"
+                  onsubmit="return confirm('Close round {{ current_round.number }}? Pairings for the next round are built from these results and this cannot be undone.')">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="complete_round">
+              <input type="hidden" name="round_pk" value="{{ current_round.pk }}">
+              <button type="submit" class="btn btn-primary btn-sm">
+                Close round {{ current_round.number }}
+              </button>
+            </form>
+          </div>
 
-        <div class="table-responsive">
-          <table class="table table-hover align-middle mb-0">
-            <thead>
-              <tr>
-                <th style="width:3.5rem;" class="text-center">Board</th>
-                <th>White</th>
-                <th style="width:9rem;">Result</th>
-                <th>Black</th>
-                <th style="width:6rem;" class="text-center">Lichess</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for match in current_round.matches.all %}
-              <tr>
-                <td class="text-center text-muted">
-                  {% if match.black_player %}{{ match.board_number|default:"—" }}{% else %}BYE{% endif %}
-                </td>
+          <div style="overflow-x:auto;">
+            <table class="grid">
+              <thead>
+                <tr>
+                  <th style="width:3.5rem;">Board</th>
+                  <th>White</th>
+                  <th style="width:11rem;">Result</th>
+                  <th>Black</th>
+                  <th class="hide-phone r">Game</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for match in current_round.matches.all %}
+                  <tr>
+                    <td class="num muted">
+                      {% if match.black_player %}
+                        {{ match.board_number|default:"?" }}
+                      {% else %}
+                        <span class="tag tag-quiet">Bye</span>
+                      {% endif %}
+                    </td>
 
-                <td>
-                  <span class="fw-semibold">{{ match.white_player.user.get_full_name|default:match.white_player.user.username }}</span>
-                  <span class="text-muted small ms-1">({{ match.white_player.rating }})</span>
-                </td>
+                    <td>
+                      <span style="font-weight:600;">{{ match.white_player.user.get_full_name|default:match.white_player.user.username }}</span>
+                      <span class="tiny muted num">{{ match.white_player.rating }}</span>
+                    </td>
 
-                <td>
-                  {% if match.black_player is None %}
-                    <span class="text-muted small">full point bye</span>
-                  {% elif match.result != 'pending' %}
-                    <span class="badge bg-success">{{ match.get_result_display }}</span>
-                  {% else %}
-                    <form method="post" action="{% url 'tournament_record_result' tournament.pk match.pk %}" class="d-flex gap-1">
-                      {% csrf_token %}
-                      <select name="result" class="form-select form-select-sm" required>
-                        <option value="">—</option>
-                        {% for val, label in result_choices %}
-                        <option value="{{ val }}">{{ label }}</option>
-                        {% endfor %}
-                      </select>
-                      <button type="submit" class="btn btn-sm btn-chess px-2">✓</button>
-                    </form>
-                  {% endif %}
-                </td>
+                    <td>
+                      {% if match.black_player is None %}
+                        <span class="tiny muted">Full point bye</span>
+                      {% elif match.result != 'pending' %}
+                        <span class="tag tag-done">{{ match.get_result_display }}</span>
+                      {% else %}
+                        <form method="post" class="cell-form"
+                              action="{% url 'tournament_record_result' tournament.pk match.pk %}">
+                          {% csrf_token %}
+                          <select name="result" required
+                                  aria-label="Result on board {{ match.board_number|default:'?' }}">
+                            <option value="">Result</option>
+                            {% for val, label in result_choices %}
+                              <option value="{{ val }}">{{ label }}</option>
+                            {% endfor %}
+                          </select>
+                          <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                        </form>
+                      {% endif %}
+                    </td>
 
-                <td>
-                  {% if match.black_player %}
-                    <span class="fw-semibold">{{ match.black_player.user.get_full_name|default:match.black_player.user.username }}</span>
-                    <span class="text-muted small ms-1">({{ match.black_player.rating }})</span>
-                  {% else %}
-                    <span class="text-muted">—</span>
-                  {% endif %}
-                </td>
+                    <td>
+                      {% if match.black_player %}
+                        <span style="font-weight:600;">{{ match.black_player.user.get_full_name|default:match.black_player.user.username }}</span>
+                        <span class="tiny muted num">{{ match.black_player.rating }}</span>
+                      {% else %}
+                        <span class="muted">No opponent</span>
+                      {% endif %}
+                    </td>
 
-                <!-- Lichess column -->
-                <td class="text-center">
-                  {% if match.lichess_game_id %}
-                    <a href="https://lichess.org/{{ match.lichess_game_id }}" target="_blank" rel="noopener"
-                       class="btn btn-sm btn-outline-secondary px-2 py-0" title="View on Lichess">
-                      ♞
-                    </a>
-                  {% elif match.black_player and match.result == 'pending' %}
-                    <button class="btn btn-sm btn-outline-secondary px-2 py-0"
-                            data-bs-toggle="collapse"
-                            data-bs-target="#lichess-form-{{ match.pk }}"
-                            title="Link Lichess game">+♞</button>
-                    <div class="collapse mt-1" id="lichess-form-{{ match.pk }}">
-                      <form method="post" action="{% url 'link_lichess' match.pk %}" class="d-flex gap-1 mt-1">
-                        {% csrf_token %}
-                        <input type="text" name="lichess_url"
-                               class="form-control form-control-sm"
-                               placeholder="lichess.org/abc12345"
-                               style="min-width:160px;">
-                        <button type="submit" class="btn btn-sm btn-chess px-2">Link</button>
-                      </form>
-                    </div>
-                  {% endif %}
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {% endif %}
-
-      <!-- ③ Completed rounds (collapsed) -->
-      {% for round in rounds %}
-      {% if round.is_complete %}
-      <div class="card p-3 mb-3">
-        <div class="d-flex align-items-center justify-content-between">
-          <span class="fw-semibold">Round {{ round.number }}</span>
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-success">Complete</span>
-            <a href="{% url 'tournament_round' tournament.pk round.number %}" class="btn btn-outline-secondary btn-sm">
-              View Pairings
-            </a>
-            <button class="btn btn-outline-secondary btn-sm" type="button"
-              data-bs-toggle="collapse" data-bs-target="#round{{ round.number }}">
-              Results ▾
-            </button>
+                    <td class="hide-phone r">
+                      {% if match.lichess_game_id %}
+                        <a class="btn btn-quiet btn-sm"
+                           href="https://lichess.org/{{ match.lichess_game_id }}"
+                           target="_blank" rel="noopener">Lichess</a>
+                      {% elif match.black_player and match.result == 'pending' %}
+                        <details>
+                          <summary class="btn btn-quiet btn-sm" style="list-style:none;">Link game</summary>
+                          <form method="post" class="cell-form"
+                                action="{% url 'link_lichess' match.pk %}"
+                                style="margin-top:var(--s-2);">
+                            {% csrf_token %}
+                            <input type="text" name="lichess_url"
+                                   placeholder="lichess.org/abc12345"
+                                   aria-label="Lichess game URL"
+                                   style="min-width:11rem;">
+                            <button type="submit" class="btn btn-primary btn-sm">Link</button>
+                          </form>
+                        </details>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
         </div>
-        <div class="collapse mt-3" id="round{{ round.number }}">
-          <table class="table table-sm mb-0">
-            <tbody>
-              {% for match in round.matches.all %}
-              <tr>
-                <td class="text-muted small" style="width:3rem;">{% if match.black_player %}{{ match.board_number|default:"—" }}{% else %}BYE{% endif %}</td>
-                <td>{{ match.white_player.user.get_full_name|default:match.white_player.user.username }}</td>
-                <td class="fw-bold text-center" style="width:6rem;">
-                  {% if match.result == 'white_win' %}1 – 0
-                  {% elif match.result == 'black_win' %}0 – 1
-                  {% elif match.result == 'draw' %}½ – ½
-                  {% elif match.result == 'white_forfeit' %}w.ff
-                  {% elif match.result == 'black_forfeit' %}b.ff
-                  {% else %}bye{% endif %}
-                </td>
-                <td>{% if match.black_player %}{{ match.black_player.user.get_full_name|default:match.black_player.user.username }}{% else %}—{% endif %}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
       {% endif %}
+
+      {# ------------------------------------------------- rounds already played #}
+      {% for round in rounds %}
+        {% if round.is_complete %}
+          <details class="panel" style="margin-bottom:var(--s-3);">
+            <summary style="padding:var(--s-3) var(--s-4);cursor:pointer;">
+              <strong>Round {{ round.number }}</strong>
+              <span class="tag tag-done">Complete</span>
+            </summary>
+            <div style="border-top:var(--line);">
+              <table class="grid">
+                <tbody>
+                  {% for match in round.matches.all %}
+                    <tr>
+                      <td class="num muted" style="width:3rem;">
+                        {% if match.black_player %}{{ match.board_number|default:"?" }}{% else %}Bye{% endif %}
+                      </td>
+                      <td>{{ match.white_player.user.get_full_name|default:match.white_player.user.username }}</td>
+                      <td class="c num nowrap" style="width:6rem;font-weight:700;">
+                        {% if match.result == 'white_win' %}1 &ndash; 0
+                        {% elif match.result == 'black_win' %}0 &ndash; 1
+                        {% elif match.result == 'draw' %}&frac12; &ndash; &frac12;
+                        {% elif match.result == 'white_forfeit' %}w.ff
+                        {% elif match.result == 'black_forfeit' %}b.ff
+                        {% else %}bye{% endif %}
+                      </td>
+                      <td>
+                        {% if match.black_player %}
+                          {{ match.black_player.user.get_full_name|default:match.black_player.user.username }}
+                        {% else %}
+                          <span class="muted">No opponent</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <div class="panel-body" style="border-top:var(--line);">
+                <a class="btn btn-quiet btn-sm"
+                   href="{% url 'tournament_round' tournament.pk round.number %}">
+                  Open the pairings sheet
+                </a>
+              </div>
+            </div>
+          </details>
+        {% endif %}
       {% endfor %}
 
     </div>
 
-    <!-- ── RIGHT COLUMN ───────────────────────────────── -->
-    <div class="col-lg-4">
+    {# ============================================================== setup #}
+    <div class="col-4">
 
-      <!-- ④ Start next round -->
-      <div class="card p-4 mb-4">
-        <h6 class="fw-bold mb-1">Rounds</h6>
-        <div class="text-muted small mb-3">
-          {{ rounds|length }} of {{ tournament.num_rounds }} round(s) created
+      {# ------------------------------------------------------------ rounds #}
+      <div class="panel" style="margin-bottom:var(--s-5);">
+        <div class="panel-head">
+          <h3>Rounds</h3>
+          <span class="tiny muted">
+            <span class="num">{{ rounds|length }}</span> of
+            <span class="num">{{ tournament.num_rounds }}</span>
+          </span>
         </div>
+        <div class="panel-body">
 
-        {% if can_start_round %}
-        <form method="post">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="start_round">
-          <button type="submit" class="btn btn-chess w-100 fw-semibold">
-            ▶ Start Round {{ next_round_number }}
-          </button>
-        </form>
-        {% elif current_round %}
-        <button class="btn btn-outline-secondary w-100" disabled>
-          Complete Round {{ current_round.number }} first
-        </button>
-        {% elif rounds|length >= tournament.num_rounds %}
-        <button class="btn btn-outline-secondary w-100" disabled>
-          All {{ tournament.num_rounds }} rounds complete
-        </button>
-        {% else %}
-        <button class="btn btn-outline-secondary w-100" disabled title="Need ≥ 2 confirmed players">
-          Not ready to start
-        </button>
-        {% endif %}
+          {% if can_start_round %}
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="start_round">
+              <button type="submit" class="btn btn-primary" style="width:100%;">
+                Pair round {{ next_round_number }}
+              </button>
+            </form>
+            <p class="help">
+              Swiss pairings are generated from the standings so far. Each
+              section is paired on its own.
+            </p>
+          {% elif current_round %}
+            <p class="small muted" style="margin:0;">
+              Record every result in round {{ current_round.number }} and close
+              it before the next round can be paired.
+            </p>
+          {% elif rounds|length >= tournament.num_rounds %}
+            <p class="small muted" style="margin:0;">
+              All {{ tournament.num_rounds }} rounds are played. Set the status
+              to Completed when the prizes are settled.
+            </p>
+          {% else %}
+            <p class="small muted" style="margin:0;">
+              Not ready yet. Two confirmed players are the minimum, and
+              registration must be open.
+            </p>
+          {% endif %}
 
-        {% if rounds %}
-        <div class="mt-3">
-          {% for round in rounds %}
-          <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
-            <a href="{% url 'tournament_round' tournament.pk round.number %}" class="small">
-              Round {{ round.number }}
-            </a>
-            <span class="badge {% if round.is_complete %}bg-success{% else %}bg-warning text-dark{% endif %}">
-              {% if round.is_complete %}done{% else %}active{% endif %}
-            </span>
-          </div>
-          {% endfor %}
+          {% if rounds %}
+            <div class="stack-sm" style="margin-top:var(--s-4);">
+              {% for round in rounds %}
+                <div class="between">
+                  <a class="small" href="{% url 'tournament_round' tournament.pk round.number %}">
+                    Round {{ round.number }}
+                  </a>
+                  {% if round.is_complete %}
+                    <span class="tag tag-done">Done</span>
+                  {% else %}
+                    <span class="tag tag-live">Playing</span>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+
         </div>
-        {% endif %}
       </div>
 
       {% comment %}
@@ -273,11 +315,26 @@
         <div class="panel-body">
 
           {% if not sections %}
-            <p class="small muted" style="margin:0 0 var(--s-4);">
-              This tournament runs as a single field. Add sections if you are
-              splitting the hall into Open, Ladies and Developmental, and each
-              will be paired and scored on its own.
-            </p>
+            {% comment %}
+              Two different sentences, because the panel used to print the
+              invitation to add sections even when it was locked and adding
+              one was impossible. Telling somebody to do a thing the same
+              panel has just disabled is worse than saying nothing.
+            {% endcomment %}
+            {% if sections_locked %}
+              <p class="small muted" style="margin:0;">
+                This tournament runs as a single field and the rounds have
+                started, so that is now fixed. Sections have to be set before
+                the first pairing, or players end up with no games in the
+                rounds already played.
+              </p>
+            {% else %}
+              <p class="small muted" style="margin:0 0 var(--s-4);">
+                This tournament runs as a single field. Add sections if you are
+                splitting the hall into Open, Ladies and Developmental, and each
+                will be paired and scored on its own.
+              </p>
+            {% endif %}
           {% else %}
             <table class="grid" style="margin-bottom:var(--s-4);">
               <tbody>
@@ -359,112 +416,147 @@
         </div>
       </div>
 
-      <!-- ⑤ Seeding (only before round 1) -->
+      {# ----------------------------------------------------------- seeding #}
       {% if no_rounds_yet and confirmed_seeding %}
-      <div class="card p-4 mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-1">
-          <h6 class="fw-bold mb-0">🎯 Player Seeding</h6>
-          <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="auto_seed">
-            <button type="submit" class="btn btn-outline-secondary btn-sm"
-                    onclick="return confirm('Auto-seed all {{ confirmed_seeding|length }} players by ELO (highest ELO = seed 1)?')">
-              ⚡ Auto by ELO
-            </button>
-          </form>
-        </div>
-        <p class="text-muted small mb-3">
-          Set seed numbers before starting round 1. Seeds influence Swiss pairings — seed 1 meets seed 2 in round 1.
-        </p>
-
-        <form method="post">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="set_seeds">
-          <div class="d-flex flex-column gap-1">
-            {% for reg in confirmed_seeding %}
-            <div class="d-flex align-items-center gap-2 py-1" style="border-bottom:1px solid #f0f0f0;">
-              <input type="number" name="seed_{{ reg.pk }}"
-                     value="{{ reg.seed_number|default:'' }}"
-                     min="1" max="{{ confirmed_seeding|length }}"
-                     class="form-control form-control-sm text-center fw-bold"
-                     style="width:56px;color:var(--chess-accent);"
-                     placeholder="—">
-              <div class="flex-grow-1 small">
-                <div class="fw-semibold">{{ reg.player.user.get_full_name|default:reg.player.user.username }}</div>
-                <div class="text-muted" style="font-size:0.72rem;">ELO {{ reg.player.rating }}</div>
-              </div>
-            </div>
-            {% endfor %}
+        <div class="panel" style="margin-bottom:var(--s-5);">
+          <div class="panel-head">
+            <h3>Seeding</h3>
+            <form method="post"
+                  onsubmit="return confirm('Seed all {{ confirmed_seeding|length }} players by rating? Anything set by hand is overwritten.')">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="auto_seed">
+              <button type="submit" class="btn btn-quiet btn-sm">Order by rating</button>
+            </form>
           </div>
-          <button type="submit" class="btn btn-chess btn-sm w-100 mt-3">💾 Save Seeds</button>
-        </form>
-      </div>
+          <div class="panel-body">
+            <p class="small muted" style="margin:0 0 var(--s-4);">
+              Seeds decide who meets whom in round 1, so they have to be set
+              before it is paired. Seed 1 is the strongest player.
+            </p>
+
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="set_seeds">
+              <table class="grid" style="margin-bottom:var(--s-4);">
+                <tbody>
+                  {% for reg in confirmed_seeding %}
+                    <tr>
+                      <td style="width:4.5rem;">
+                        <input type="number" class="seed" name="seed_{{ reg.pk }}"
+                               value="{{ reg.seed_number|default:'' }}"
+                               min="1" max="{{ confirmed_seeding|length }}"
+                               aria-label="Seed for {{ reg.player.user.get_full_name|default:reg.player.user.username }}">
+                      </td>
+                      <td>
+                        <div style="font-weight:600;">
+                          {{ reg.player.user.get_full_name|default:reg.player.user.username }}
+                        </div>
+                        <div class="tiny muted">ELO <span class="num">{{ reg.player.rating }}</span></div>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <button type="submit" class="btn btn-primary btn-sm">Save seeds</button>
+            </form>
+          </div>
+        </div>
       {% endif %}
 
-      <!-- ⑥ Registrations -->
-      <div class="card p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h6 class="fw-bold mb-0">
-            Players
-            <span class="badge bg-secondary ms-1">{{ registrations|length }}</span>
-          </h6>
+      {# ----------------------------------------------------------- players #}
+      <div class="panel" style="margin-bottom:var(--s-5);">
+        <div class="panel-head">
+          <h3>Players</h3>
+          <span class="tiny muted num">{{ registrations|length }}</span>
+        </div>
+        <div class="panel-body">
+
           {% if registrations %}
-          <form method="post">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="confirm_all">
-            <button type="submit" class="btn btn-sm btn-outline-success">Confirm All</button>
-          </form>
-          {% endif %}
-        </div>
-
-        {% for reg in registrations %}
-        <div class="d-flex align-items-center justify-content-between py-1 border-bottom gap-2">
-          <div class="small">
-            <div class="fw-semibold">
-              {% if reg.seed_number %}
-                <span class="text-muted me-1" style="font-size:0.72rem;">#{{ reg.seed_number }}</span>
-              {% endif %}
-              {{ reg.player.user.get_full_name|default:reg.player.user.username }}
-            </div>
-            <div class="text-muted" style="font-size:0.75rem;">
-              ELO {{ reg.player.rating }}
-              {% if tournament.registration_fee > 0 %}
-                &nbsp;·&nbsp;
-                {% if reg.has_paid %}
-                  <span class="text-success fw-semibold">💳 Paid</span>
-                {% else %}
-                  <span class="text-danger fw-semibold">⏳ Unpaid</span>
-                {% endif %}
-              {% endif %}
-            </div>
-          </div>
-          {% if reg.status == 'confirmed' %}
-            <span class="badge bg-success">confirmed</span>
-          {% elif reg.status == 'pending' %}
-            <form method="post" class="ms-auto">
+            <form method="post" style="margin-bottom:var(--s-4);">
               {% csrf_token %}
-              <input type="hidden" name="action" value="confirm_reg">
-              <input type="hidden" name="reg_pk" value="{{ reg.pk }}">
-              <button type="submit"
-                class="btn btn-sm {% if tournament.registration_fee > 0 and not reg.has_paid %}btn-outline-warning{% else %}btn-outline-success{% endif %} py-0 px-2"
-                {% if tournament.registration_fee > 0 and not reg.has_paid %}
-                  title="Player has not paid — confirm anyway?"
-                  onclick="return confirm('{{ reg.player.user.get_full_name }} has not paid the registration fee. Confirm anyway?')"
-                {% endif %}>
-                ✓
-              </button>
+              <input type="hidden" name="action" value="confirm_all">
+              <button type="submit" class="btn btn-quiet btn-sm">Confirm everybody</button>
             </form>
-          {% else %}
-            <span class="badge bg-secondary">{{ reg.get_status_display }}</span>
           {% endif %}
-        </div>
-        {% empty %}
-        <p class="text-muted small mb-0">No registrations yet.</p>
-        {% endfor %}
 
-        <a href="{% url 'tournament_standings' tournament.pk %}" class="btn btn-outline-secondary btn-sm w-100 mt-3">
-          View Live Standings
-        </a>
+          <div class="stack-sm">
+            {% for reg in registrations %}
+              <div class="between" style="border-bottom:1px solid var(--bch-sand);
+                                          padding-bottom:var(--s-2);">
+                <div>
+                  <div class="small" style="font-weight:600;">
+                    {% if reg.seed_number %}
+                      <span class="tiny muted num">{{ reg.seed_number }}.</span>
+                    {% endif %}
+                    {{ reg.player.user.get_full_name|default:reg.player.user.username }}
+                  </div>
+                  <div class="tiny muted">ELO
+                    <span class="num">{{ reg.player.rating }}</span>{% if tournament.registration_fee > 0 %}{% if reg.has_paid %}, paid{% else %}, not paid{% endif %}{% endif %}
+                  </div>
+                </div>
+
+                {% if reg.status == 'confirmed' %}
+                  <span class="tag tag-open">In</span>
+                {% elif reg.status == 'pending' %}
+                  <form method="post"
+                        {% if tournament.registration_fee > 0 and not reg.has_paid %}
+                          onsubmit="return confirm('{{ reg.player.user.get_full_name|default:reg.player.user.username }} has not paid the entry fee. Give them a place anyway?')"
+                        {% endif %}>
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="confirm_reg">
+                    <input type="hidden" name="reg_pk" value="{{ reg.pk }}">
+                    <button type="submit"
+                            class="btn btn-sm {% if tournament.registration_fee > 0 and not reg.has_paid %}btn-danger{% else %}btn-quiet{% endif %}">
+                      Confirm
+                    </button>
+                  </form>
+                {% else %}
+                  <span class="tag">{{ reg.get_status_display }}</span>
+                {% endif %}
+              </div>
+            {% empty %}
+              <div class="empty">
+                <strong>Nobody has entered yet.</strong>
+                Entries appear here as players register.
+              </div>
+            {% endfor %}
+          </div>
+
+          <a class="btn btn-quiet btn-sm" style="margin-top:var(--s-4);"
+             href="{% url 'tournament_standings' tournament.pk %}">
+            Live standings
+          </a>
+
+        </div>
+      </div>
+
+      {# ------------------------------------------------------------ status #}
+      {% comment %}
+        Last, not first. Changing status is the rarest thing a director does
+        here and the one most likely to be hit by accident, so it sits below
+        everything used on the day.
+      {% endcomment %}
+      <div class="panel">
+        <div class="panel-head"><h3>Status</h3></div>
+        <div class="panel-body">
+          <div class="toolbar">
+            {% for val, label in status_choices %}
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="set_status">
+                <input type="hidden" name="status" value="{{ val }}">
+                <button type="submit" class="btn btn-sm
+                        {% if tournament.status == val %}btn-primary{% else %}btn-quiet{% endif %}"
+                        {% if tournament.status == val %}disabled{% endif %}>
+                  {{ label }}
+                </button>
+              </form>
+            {% endfor %}
+          </div>
+          <p class="help">
+            Upcoming, then Registration Open, then In Progress, then Completed.
+          </p>
+        </div>
       </div>
 
     </div>

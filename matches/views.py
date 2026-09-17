@@ -9,6 +9,7 @@ from django.contrib import messages
 from django.views.decorators.http import require_POST
 
 from .models import Match, Challenge
+from .replay import replay
 
 
 def match_detail(request, match_pk):
@@ -19,10 +20,12 @@ def match_detail(request, match_pk):
         ),
         pk=match_pk,
     )
-    pgn_json = json.dumps(match.pgn) if match.pgn else 'null'
+    # Parsed here rather than in the browser. The PGN is fixed the moment the
+    # game ends, so parsing it on every page load in every visitor's phone was
+    # 190 KB of libraries doing work that can be done once. See matches/replay.py.
     return render(request, 'matches/detail.html', {
         'match': match,
-        'pgn_json': pgn_json,
+        'replay': replay(match.pgn) if match.pgn else None,
     })
 
 
