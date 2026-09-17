@@ -5,6 +5,10 @@ from members.models import Member
 from tournaments.models import Tournament, Round, TournamentRegistration
 from matches.models import Match, Challenge
 from matches.replay import replay
+from matches import rating
+from unittest.mock import patch
+import io
+import json
 from django.urls import reverse
 import datetime
 
@@ -289,3 +293,220 @@ class MatchDetailPageTest(TestCase):
         for host in ['code.jquery.com', 'cdnjs.cloudflare.com', 'unpkg.com',
                      'cdn.jsdelivr.net']:
             self.assertNotIn(host, body, f'{host} is still being loaded')
+
+
+# ---------------------------------------------------------------------------
+# The rating formula
+# ---------------------------------------------------------------------------
+
+class RatingFormulaTest(TestCase):
+    """One copy of the Elo maths, in matches/rating.py.
+
+    K = 32 was written out in four places and the formula in three, which the
+    niklasf evaluation flagged on 2026-09-13 as worth fixing regardless of
+    which rating system eventually wins. By the time it was followed up the
+    copies had already drifted apart.
+    """
+
+    def test_equal_players_expect_half_a_point(self):
+        self.assertAlmostEqual(rating.expected_score(1200, 1200), 0.5)
+
+    def test_the_stronger_player_is_expected_to_score_more(self):
+        self.assertGreater(rating.expected_score(2000, 1200), 0.9)
+        self.assertLess(rating.expected_score(1200, 2000), 0.1)
+
+    def test_beating_a_stronger_player_is_worth_more_than_beating_a_weaker_one(self):
+        """The entire point of a rating system. The displayed figure claimed
+        otherwise for every challenge win."""
+        big_upset = rating.delta(1200, 2000, rating.WIN)
+        easy_win = rating.delta(1200, 1000, rating.WIN)
+        self.assertGreater(big_upset, easy_win)
+        self.assertEqual(big_upset, 32)
+        self.assertEqual(easy_win, 8)
+
+    def test_a_win_can_never_be_reported_as_a_flat_32(self):
+        """The precedence bug, pinned directly.
+
+            K * (1 if win else (0.5 if draw else 0) - expected)
+
+        binds `- expected` inside the else branch, so the win case was a bare
+        1 and every win came out at exactly +32.
+        """
+        flat = [rating.delta(1200, opponent, rating.WIN)
+                for opponent in (600, 800, 1000, 1200, 1400)]
+        self.assertNotEqual(flat, [32] * 5,
+                            'every win scoring +32 is the precedence bug')
+        self.assertEqual(sorted(flat), flat,
+                         'a win should be worth more the stronger the opponent')
+
+    def test_the_delta_is_exactly_what_new_rating_applies(self):
+        """Derived, not recomputed. This is what makes them unable to drift."""
+        for own in (1000, 1200, 1201, 1543):
+            for opponent in (900, 1200, 1800):
+                for score in (rating.WIN, rating.DRAW, rating.LOSS):
+                    self.assertEqual(
+                        rating.new_rating(own, opponent, score) - own,
+                        rating.delta(own, opponent, score))
+
+    def test_a_loss_costs_the_favourite_more_than_the_underdog(self):
+        self.assertLess(rating.delta(2000, 1200, rating.LOSS),
+                        rating.delta(1200, 2000, rating.LOSS))
+
+
+class ChallengeDeltaIsTheAppliedChange(TestCase):
+    """What a player is shown must be what happened to their rating."""
+
+    def setUp(self):
+        assoc = make_assoc()
+        self.strong = make_member('strong_one', rating=1200, assoc=assoc)
+        self.weak = make_member('weak_one', rating=1000, assoc=assoc)
+
+    def test_the_displayed_delta_equals_the_rating_actually_gained(self):
+        before = self.strong.rating
+        challenge = Challenge.objects.create(
+            challenger=self.strong, opponent=self.weak, status='accepted')
+        challenge.record_result('challenger_win')
+
+        self.strong.refresh_from_db()
+        applied = self.strong.rating - before
+
+        self.assertEqual(challenge.challenger_elo_delta, applied)
+        self.assertEqual(applied, 8,
+                         'a 1200 beating a 1000 gains 8, not the 32 that was '
+                         'displayed for every win')
+
+    def test_the_delta_does_not_move_when_the_players_play_again(self):
+        """It used to be recomputed from CURRENT ratings, so an old challenge
+        silently rewrote its own history every time either player's rating
+        moved."""
+        challenge = Challenge.objects.create(
+            challenger=self.strong, opponent=self.weak, status='accepted')
+        challenge.record_result('challenger_win')
+        recorded = challenge.challenger_elo_delta
+
+        later = Challenge.objects.create(
+            challenger=self.strong, opponent=self.weak, status='accepted')
+        later.record_result('opponent_win')
+
+        challenge.refresh_from_db()
+        self.assertEqual(challenge.challenger_elo_delta, recorded)
+
+    def test_both_players_are_rated_against_the_ratings_held_before_the_game(self):
+        """Whoever is updated first must not change the other's expected
+        score, or the two deltas do not sum the way Elo requires."""
+        s_before, w_before = self.strong.rating, self.weak.rating
+        challenge = Challenge.objects.create(
+            challenger=self.strong, opponent=self.weak, status='accepted')
+        challenge.record_result('draw')
+
+        self.strong.refresh_from_db()
+        self.weak.refresh_from_db()
+        self.assertEqual((self.strong.rating - s_before) +
+                         (self.weak.rating - w_before), 0,
+                         'a draw moves the pair by equal and opposite amounts')
+
+
+# ---------------------------------------------------------------------------
+# Linking a Lichess game
+# ---------------------------------------------------------------------------
+
+class _FakeResponse(io.BytesIO):
+    """Stands in for urlopen's context-managed response."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+
+class LinkLichessTest(TestCase):
+    """Importing a game is the one place unverified outside data reaches a
+    rated result, so it earns the checks.
+
+    Recommended by the evaluation of niklasf's libraries on 2026-09-13,
+    item 2: "Right now a PGN is stored without anyone checking it parses, let
+    alone that the moves are legal or that the result header matches what
+    gets recorded against a player's rating."
+    """
+
+    LEGAL_PGN = (
+        '[Result "1-0"]\n[ECO "C60"]\n[Opening "Ruy Lopez"]\n\n'
+        '1. e4 e5 2. Nf3 Nc6 3. Bb5 1-0')
+
+    def setUp(self):
+        assoc = make_assoc()
+        self.director = make_member('director', assoc=assoc)
+        self.director.role = 'admin'
+        self.director.save()
+        self.white = make_member('w_player', assoc=assoc)
+        self.black = make_member('b_player', assoc=assoc)
+        self.tournament = Tournament.objects.create(
+            name='Link Open', association=assoc, location='Bulawayo',
+            start_date=datetime.date(2026, 1, 1), end_date=datetime.date(2026, 1, 2),
+            num_rounds=3, max_players=8)
+        self.round = Round.objects.create(tournament=self.tournament, number=1)
+        self.match = Match.objects.create(
+            tournament=self.tournament, round=self.round,
+            white_player=self.white, black_player=self.black,
+            result='pending', board_number=1)
+        self.client.force_login(self.director.user)
+
+    def _link(self, pgn, winner='white', status='mate'):
+        """Run the view with both Lichess calls stubbed."""
+        meta = json.dumps({'winner': winner, 'status': status}).encode()
+
+        def fake_urlopen(req, timeout=None):
+            url = req if isinstance(req, str) else req.full_url
+            if '/api/game/' in url:
+                return _FakeResponse(meta)
+            return _FakeResponse(pgn.encode())
+
+        with patch('matches.views.urllib_request.urlopen', fake_urlopen):
+            return self.client.post(
+                reverse('link_lichess', args=[self.match.pk]),
+                {'lichess_url': 'lichess.org/abc12345'}, follow=True)
+
+    def test_a_legal_game_is_stored_with_its_opening(self):
+        self._link(self.LEGAL_PGN)
+        self.match.refresh_from_db()
+        self.assertEqual(self.match.lichess_game_id, 'abc12345')
+        self.assertIn('Nf3', self.match.pgn)
+        self.assertEqual(self.match.eco, 'C60')
+        self.assertEqual(self.match.opening, 'Ruy Lopez',
+                         'the opening arrives free on every export and used '
+                         'to be thrown away')
+
+    def test_an_unreadable_record_is_refused_but_the_link_is_kept(self):
+        """A record that cannot be read is worse than no record: the viewer
+        draws whatever prefix parsed, which looks like a complete game that
+        never happened."""
+        response = self._link('this is not a chess game at all')
+        self.match.refresh_from_db()
+        self.assertEqual(self.match.pgn, '', 'nothing unreadable is stored')
+        self.assertEqual(self.match.lichess_game_id, 'abc12345',
+                         'the link itself is still useful')
+        self.assertContains(response, 'could not be read')
+
+    def test_a_record_that_stops_early_is_flagged(self):
+        illegal_halfway = '[Result "1-0"]\n\n1. e4 e5 2. Nf3 Rg8 1-0'
+        response = self._link(illegal_halfway)
+        self.assertContains(response, 'stops early')
+
+    def test_a_disagreement_with_the_recorded_result_is_a_warning_not_a_success(self):
+        """The ratings have ALREADY been applied from the recorded result, so
+        if Lichess disagrees two people's ratings have moved the wrong way.
+        This used to be reported in the same tone as everything going fine.
+        """
+        self.match.record_result('white_win')
+
+        response = self._link(self.LEGAL_PGN, winner='black', status='resign')
+        self.assertContains(response, 'DISAGREE')
+        self.assertContains(response, 'need correcting')
+
+    def test_agreement_is_reported_as_confirmation(self):
+        self.match.record_result('white_win')
+        response = self._link(self.LEGAL_PGN, winner='white', status='mate')
+        self.assertContains(response, 'confirms')
+        self.assertNotContains(response, 'DISAGREE')

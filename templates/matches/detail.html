@@ -134,8 +134,17 @@
             <span class="tiny muted num">{{ replay.moves|length }}</span>
           </div>
           <div class="panel-body">
-            {% if replay.opening %}
-              <p class="tiny muted" style="margin:0 0 var(--s-3);">{{ replay.opening }}</p>
+            {% comment %}
+              Prefers the stored field over the freshly parsed header, because
+              the stored one is what an opening report for the association
+              would count. They agree on any game linked after 2026-09-17;
+              before that the field is blank and this falls back.
+            {% endcomment %}
+            {% if match.opening or replay.opening %}
+              <p class="tiny muted" style="margin:0 0 var(--s-3);">
+                {{ match.opening|default:replay.opening }}
+                {% if match.eco %}<span class="num">{{ match.eco }}</span>{% endif %}
+              </p>
             {% endif %}
             <div class="moves" id="move-list"></div>
           </div>

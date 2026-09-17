@@ -109,11 +109,44 @@ def link_lichess(request, match_pk):
     else:
         detected = None  # game still in progress
 
-    # ── Persist game ID and PGN ───────────────────────────────────────
+    # ── Validate the PGN before storing it ────────────────────────────
+    #
+    # TRUST BUT VERIFY, on a game that is about to change two people's
+    # ratings. Until now a PGN was fetched and stored with nobody checking it
+    # even parsed, let alone that its moves were legal. A record that cannot
+    # be read is worse than no record: the viewer draws whatever prefix DID
+    # parse, which looks like a complete, plausible game that never happened.
+    #
+    # Recommended by the evaluation of niklasf's libraries, 2026-09-13,
+    # item 2: "stops trusting unverified input on rated games".
+    parsed = replay(pgn_text) if pgn_text else None
+
+    if pgn_text and parsed is None:
+        # Keep the link, drop the record. The game ID is still useful and
+        # still resolves on Lichess.
+        pgn_text = ''
+        messages.warning(
+            request,
+            f'Game {game_id} was linked, but its move record could not be '
+            'read and has not been saved. The link to Lichess still works.')
+    elif parsed and parsed['truncated']:
+        messages.warning(
+            request,
+            f'Game {game_id} was linked, but its move record stops early: it '
+            'contains a move that cannot be played from the position before '
+            'it. Only the moves up to that point will replay.')
+
+    # ── Persist game ID, PGN and opening ──────────────────────────────
     match.lichess_game_id = game_id
+    update_fields = ['lichess_game_id']
     if pgn_text:
         match.pgn = pgn_text
-    update_fields = ['lichess_game_id'] + (['pgn'] if pgn_text else [])
+        update_fields.append('pgn')
+    if parsed:
+        # Arriving free on every export and previously discarded.
+        match.eco = parsed['eco'][:8]
+        match.opening = parsed['opening'][:120]
+        update_fields += ['eco', 'opening']
 
     if match.result == 'pending' and detected and match.black_player:
         match.save(update_fields=update_fields)
@@ -125,10 +158,25 @@ def link_lichess(request, match_pk):
         already = match.result != 'pending'
         if detected and already:
             label = dict(Match.RESULT_CHOICES).get(detected, detected)
-            messages.success(
-                request,
-                f'Game {game_id} linked. Result already recorded; Lichess shows: {label}.',
-            )
+            if detected != match.result:
+                # NOT a success. The ratings have already been applied from
+                # the recorded result, so if Lichess disagrees then two
+                # players' ratings have moved the wrong way and somebody has
+                # to decide which record is right. This used to be reported
+                # in exactly the same tone as everything going fine.
+                recorded = dict(Match.RESULT_CHOICES).get(match.result, match.result)
+                messages.warning(
+                    request,
+                    f'Game {game_id} linked, but the results DISAGREE. This '
+                    f'match is recorded as "{recorded}" and Lichess says '
+                    f'"{label}". Ratings were already applied from the '
+                    'recorded result, so if Lichess is right they need '
+                    'correcting.')
+            else:
+                messages.success(
+                    request,
+                    f'Game {game_id} linked. Lichess confirms the recorded '
+                    f'result: {label}.')
         elif not detected:
             messages.success(request, f'Game {game_id} linked (game may still be in progress).')
         else:

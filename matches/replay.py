@@ -101,6 +101,8 @@ def replay(pgn_text):
 
     headers = game.headers
     return {
+        'eco': headers.get('ECO', ''),
+        'termination': headers.get('Termination', ''),
         'moves': moves,
         'positions': positions,
         'highlights': highlights,
