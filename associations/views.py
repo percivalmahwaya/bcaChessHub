@@ -8,7 +8,7 @@ from tournaments.models import Tournament
 from matches.models import Match
 
 
-def association_list(request):
+def club_list(request):
     associations = Association.objects.filter(is_active=True)
 
     rows = []
@@ -25,7 +25,7 @@ def association_list(request):
     return render(request, 'associations/list.html', {'rows': rows})
 
 
-def association_detail(request, pk):
+def club_detail(request, pk):
     assoc = get_object_or_404(Association, pk=pk, is_active=True)
 
     members = ranked_by_lichess(
@@ -69,7 +69,7 @@ def association_detail(request, pk):
     })
 
 
-def association_contact(request, pk):
+def club_contact(request, pk):
     assoc = get_object_or_404(Association, pk=pk, is_active=True)
 
     if request.method == 'POST':
@@ -95,6 +95,6 @@ def association_contact(request, pk):
                 fail_silently=True,
             )
             messages.success(request, f'Your message has been sent to {assoc.name}. They will get back to you shortly.')
-            return redirect('association_detail', pk=assoc.pk)
+            return redirect('club_detail', pk=assoc.pk)
 
     return render(request, 'associations/contact.html', {'assoc': assoc})

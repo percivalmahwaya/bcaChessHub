@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
@@ -11,7 +12,14 @@ urlpatterns = [
     path('', home, name='home'),
     path('security/', security, name='security'),
     path('tournaments/', include('tournaments.urls')),
-    path('associations/', include('associations.urls')),
+    path('news/', include('news.urls')),
+    path('clubs/', include('associations.urls')),
+    # The old path, live and linked from a deployed navigation bar since
+    # June. A permanent redirect rather than a 404, because somebody's
+    # bookmark is not a good reason to lose them.
+    path('associations/', RedirectView.as_view(url='/clubs/', permanent=True)),
+    path('associations/<int:pk>/',
+         RedirectView.as_view(pattern_name='club_detail', permanent=True)),
     path('rankings/', include('members.urls')),
     path('dashboard/', dashboard, name='dashboard'),
     path('matches/', include('matches.urls')),

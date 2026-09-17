@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'tournaments',
     'matches',
     'notifications',
+    'news',
     'payments',
 ]
 

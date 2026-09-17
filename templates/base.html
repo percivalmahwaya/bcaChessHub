@@ -24,7 +24,8 @@
     <nav class="nav">
       <a href="/tournaments/">Tournaments</a>
       <a href="/rankings/">Ratings</a>
-      <a href="/associations/">Clubs</a>
+      <a href="/clubs/">Clubs</a>
+      <a href="/news/">News</a>
       {% if user.is_authenticated %}
         <a href="/dashboard/">Dashboard</a>
         <a href="{% url 'notification_centre' %}">Alerts{% if unread_notification_count %} ({{ unread_notification_count }}){% endif %}</a>
@@ -74,7 +75,8 @@
         <ul>
           <li><a href="/tournaments/">Tournaments</a></li>
           <li><a href="/rankings/">Ratings</a></li>
-          <li><a href="/associations/">Clubs</a></li>
+          <li><a href="/clubs/">Clubs</a></li>
+          <li><a href="/news/">News</a></li>
         </ul>
       </div>
       <div>
@@ -87,7 +89,7 @@
     </div>
     <p class="tiny" style="margin:var(--s-5) 0 0;">
       An independent community site for chess in the southern region.
-      Not an official publication of any association.
+      Not an official publication of any club or federation.
     </p>
   </div>
 </footer>

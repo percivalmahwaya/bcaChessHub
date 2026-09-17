@@ -20,20 +20,38 @@
 
   <h1 class="page-title">Join</h1>
   <p class="page-sub">
-    A player account gets you a rating, tournament entry and challenges.
+    Your rating, tournament entry and challenges, for chess in Bulawayo and
+    the surrounding region.
   </p>
 
   {% comment %}
-    Offered before the long form, not after it. Somebody who would rather sign
-    in with Lichess should not have to scroll past eight fields to find that
-    out.
+    THE FRONT DOOR. Signing up with Lichess is the route this site is built
+    around as of 2026-09-17: one tap, then a single question about which club
+    you play for, and the rest of the profile whenever you feel like it.
+
+    The email form below is a disclosure rather than the default, because
+    eight fields presented first make joining look like work. It is NOT
+    removed: a club here has juniors who play over the board and have never
+    opened Lichess, and locking them out to tidy a page is not a trade worth
+    making.
   {% endcomment %}
-  <a class="btn btn-quiet" style="width:100%;" href="{% url 'lichess_start' %}">
-    Continue with Lichess instead
+  <a class="btn btn-primary" style="width:100%;padding:var(--s-3) var(--s-4);"
+     href="{% url 'lichess_start' %}">
+    Sign up with Lichess
   </a>
   <p class="tiny muted" style="margin:var(--s-2) 0 var(--s-5);text-align:center;">
-    Brings your bullet, blitz and rapid ratings across, and skips this form.
+    One tap. Brings your blitz and bullet ratings across, and you pick a club
+    on the next screen. No password to invent or forget.
   </p>
+
+  <details style="margin-bottom:var(--s-5);">
+    <summary class="small" style="cursor:pointer;color:var(--bch-stone);">
+      No Lichess account? Sign up with an email address instead
+    </summary>
+    <p class="tiny muted" style="margin:var(--s-3) 0 0;">
+      You can link Lichess later from your profile, and your rating will
+      appear then.
+    </p>
 
   {% if form.non_field_errors %}
     <div class="note note-error" style="margin-bottom:var(--s-4);">
@@ -136,8 +154,9 @@
       {% endif %}
     </div>
 
-    <button type="submit" class="btn btn-primary" style="width:100%;">Create account</button>
+    <button type="submit" class="btn btn-quiet" style="width:100%;">Create account</button>
   </form>
+  </details>
 
   <p class="small muted" style="margin-top:var(--s-5);">
     Already have an account? <a href="{% url 'login' %}">Log in</a>.

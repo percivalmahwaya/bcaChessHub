@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block title %}News{% endblock %}
+{% block description %}Chess news from Bulawayo, Zimbabwe and the surrounding region.{% endblock %}
+
+{% comment %}
+  Curated, not aggregated. An administrator relays an item and credits the
+  source, which is how Africa Chess League does it: their bylines name other
+  federations but every headline links to a page on their own site.
+
+  The layout is a list, not a grid of cards. Chess news here is a handful of
+  items a month, and a three column grid of four items looks like a site
+  waiting for content. A list of four items looks like four items.
+
+  The image is optional and the row reads correctly without one, because most
+  announcements relayed from a federation arrive as text.
+{% endcomment %}
+
+{% block content %}
+<div class="wrap page">
+
+  <h1 class="page-title">News</h1>
+  <p class="page-sub">
+    Chess in Bulawayo, Zimbabwe and the surrounding region.
+  </p>
+
+  {% if articles %}
+    <div class="stack">
+      {% for article in articles %}
+        <article class="news-row">
+          <div class="news-text">
+            <h2 class="news-title">
+              <a href="{{ article.get_absolute_url }}">{{ article.title }}</a>
+            </h2>
+            <p class="small muted news-summary">{{ article.summary }}</p>
+            <p class="tiny muted" style="margin:0;">
+              {{ article.source }}
+              &middot; {{ article.published_at|date:"j M Y" }}
+              {% if article.club %}&middot; {{ article.club.name }}{% endif %}
+            </p>
+          </div>
+          {% if article.image %}
+            <a href="{{ article.get_absolute_url }}" class="news-thumb">
+              <img src="{{ article.image.url }}" alt="" loading="lazy">
+            </a>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </div>
+
+    {% include 'partials/pagination.html' %}
+  {% else %}
+    <div class="panel">
+      <div class="empty">
+        <strong>Nothing posted yet.</strong>
+        Club announcements, tournament reports and federation news will appear
+        here.
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

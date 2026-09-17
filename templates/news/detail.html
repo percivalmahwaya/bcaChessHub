@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ article.title }}{% endblock %}
+{% block description %}{{ article.summary }}{% endblock %}
+
+{% comment %}
+  A relayed item always carries a link back to the original, and it is placed
+  ABOVE the body rather than buried at the bottom. Somebody deciding whether
+  this is a fair summary of a federation announcement should not have to read
+  our version first to find out where it came from.
+
+  The body is rendered from model.paragraphs, which splits on blank lines in
+  Python. Doing it there rather than with a template filter means the text is
+  escaped as text, so nothing typed into the admin form can put markup on the
+  page.
+{% endcomment %}
+
+{% block content %}
+<div class="wrap page" style="max-width:44rem;">
+
+  <p class="tiny muted"><a href="{% url 'news_list' %}">News</a></p>
+
+  <h1 class="page-title">{{ article.title }}</h1>
+  <p class="page-sub" style="margin-bottom:var(--s-4);">
+    {{ article.source }}
+    &middot; {{ article.published_at|date:"j F Y" }}
+    {% if article.club %}
+      &middot; <a href="{% url 'club_detail' article.club.pk %}">{{ article.club.name }}</a>
+    {% endif %}
+  </p>
+
+  {% if article.is_relayed %}
+    <div class="note note-info" style="margin-bottom:var(--s-5);">
+      Relayed from <strong>{{ article.source }}</strong>.
+      <a href="{{ article.source_url }}" target="_blank" rel="noopener">
+        Read the original</a>.
+    </div>
+  {% endif %}
+
+  {% if article.image %}
+    <img src="{{ article.image.url }}" alt=""
+         style="width:100%;height:auto;border:var(--line);margin-bottom:var(--s-5);">
+  {% endif %}
+
+  <p style="font-size:var(--t-lg);line-height:1.6;margin-bottom:var(--s-5);">
+    {{ article.summary }}
+  </p>
+
+  {% for paragraph in article.paragraphs %}
+    <p style="line-height:1.7;margin-bottom:var(--s-4);">{{ paragraph }}</p>
+  {% endfor %}
+
+  {% if more %}
+    <div class="panel panel-tight" style="margin-top:var(--s-7);">
+      <div class="panel-head"><h3>More news</h3></div>
+      <table class="grid">
+        <tbody>
+          {% for other in more %}
+            <tr>
+              <td>
+                <a href="{{ other.get_absolute_url }}" style="font-weight:600;">
+                  {{ other.title }}</a>
+                <div class="tiny muted">
+                  {{ other.source }} &middot; {{ other.published_at|date:"j M Y" }}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

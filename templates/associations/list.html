@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block title %}Clubs{% endblock %}
-{% block description %}Chess clubs and associations across Bulawayo and Matabeleland.{% endblock %}
+{% block description %}Chess clubs across Bulawayo and the surrounding region.{% endblock %}
 
 {% comment %}
   Clubs are few and each one has a real identity, so unlike tournaments this
@@ -35,7 +35,7 @@
           {% for row in rows %}
           <tr>
             <td>
-              <a href="{% url 'association_detail' row.assoc.pk %}" style="font-weight:600;">
+              <a href="{% url 'club_detail' row.assoc.pk %}" style="font-weight:600;">
                 {{ row.assoc.name }}
               </a>
               <div class="tiny muted">

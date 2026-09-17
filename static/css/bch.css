@@ -660,3 +660,33 @@ select {
   .panel { border-color: #999; break-inside: avoid; }
   a { text-decoration: none; color: inherit; }
 }
+
+/* --------------------------------------------------------------- news */
+
+/* A list, not a grid of cards. This site will carry a handful of items a
+   month, and a three column grid holding four items looks like a site waiting
+   for content. Four rows look like four items. */
+.news-row {
+  display: flex; gap: var(--s-5); align-items: flex-start;
+  padding-bottom: var(--s-5); border-bottom: var(--line);
+}
+.news-text { flex: 1 1 auto; min-width: 0; }
+.news-title { font-size: var(--t-lg); margin: 0 0 var(--s-2); line-height: 1.3; }
+.news-title a { color: var(--bch-ink); }
+.news-title a:hover { color: var(--bch-terracotta); text-decoration: none; }
+.news-summary { margin: 0 0 var(--s-2); }
+
+/* Fixed box so a tall portrait photograph cannot stretch its row to twice the
+   height of every other one. */
+.news-thumb { flex: 0 0 9rem; display: block; }
+.news-thumb img {
+  width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
+  border: var(--line); display: block;
+}
+
+@media (max-width: 640px) {
+  /* The thumbnail goes first on a phone, where it is the thing that stops a
+     list of headlines reading as a wall of text. */
+  .news-row { flex-direction: column-reverse; gap: var(--s-3); }
+  .news-thumb { flex: 1 1 auto; width: 100%; }
+}

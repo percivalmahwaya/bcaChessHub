@@ -71,7 +71,7 @@ class MessagesAreActuallyDisplayed(TestCase):
     def test_an_error_message_reaches_the_html(self):
         """The whole point. If this fails, users are flying blind again."""
         response = self.client.post(
-            reverse("association_contact", args=[self.assoc.pk]), {}, follow=True)
+            reverse("club_contact", args=[self.assoc.pk]), {}, follow=True)
 
         self.assertEqual(response.status_code, 200)
         body = response.content.decode()
@@ -83,7 +83,7 @@ class MessagesAreActuallyDisplayed(TestCase):
 
     def test_a_success_message_reaches_the_html(self):
         response = self.client.post(
-            reverse("association_contact", args=[self.assoc.pk]),
+            reverse("club_contact", args=[self.assoc.pk]),
             # The textarea is named `body`, not `message`. Getting that wrong
             # sends an incomplete form, which the view correctly rejects, and
             # the test then "proves" success messages do not work.
@@ -119,7 +119,7 @@ class MessagesAreActuallyDisplayed(TestCase):
         miss looks like every other notice.
         """
         response = self.client.post(
-            reverse("association_contact", args=[self.assoc.pk]), {}, follow=True)
+            reverse("club_contact", args=[self.assoc.pk]), {}, follow=True)
         stored = list(get_messages(response.wsgi_request))
         self.assertTrue(stored, "no message was stored at all")
         self.assertEqual(stored[0].level, message_levels.ERROR)

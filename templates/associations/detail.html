@@ -19,7 +19,7 @@
 {% block content %}
 <div class="wrap page">
 
-  <p class="tiny muted"><a href="{% url 'association_list' %}">All clubs</a></p>
+  <p class="tiny muted"><a href="{% url 'club_list' %}">All clubs</a></p>
 
   <div class="between" style="margin-bottom:var(--s-4);">
     <div>
@@ -29,7 +29,7 @@
         {% if assoc.founded_year %}&middot; founded <span class="num">{{ assoc.founded_year }}</span>{% endif %}
       </p>
     </div>
-    <a class="btn btn-primary btn-sm" href="{% url 'association_contact' assoc.pk %}">Contact this club</a>
+    <a class="btn btn-primary btn-sm" href="{% url 'club_contact' assoc.pk %}">Contact this club</a>
   </div>
 
   {% if assoc.email or assoc.phone or assoc.website %}

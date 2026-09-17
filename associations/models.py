@@ -15,6 +15,13 @@ class Association(models.Model):
 
     class Meta:
         ordering = ['name']
+        # The site calls these clubs, and so does the admin. The class and
+        # table keep the old name: five apps hold foreign keys to it and
+        # renaming the model means a schema-wide migration against a live
+        # database for something no visitor can see. See to_clubs.py in the
+        # commit that introduced this.
+        verbose_name = 'club'
+        verbose_name_plural = 'clubs'
 
     def __str__(self):
         return self.name

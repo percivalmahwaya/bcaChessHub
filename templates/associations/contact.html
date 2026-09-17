@@ -17,8 +17,8 @@
 <div class="wrap page" style="max-width:34rem;">
 
   <p class="tiny muted">
-    <a href="{% url 'association_list' %}">All clubs</a> /
-    <a href="{% url 'association_detail' assoc.pk %}">{{ assoc.name }}</a>
+    <a href="{% url 'club_list' %}">All clubs</a> /
+    <a href="{% url 'club_detail' assoc.pk %}">{{ assoc.name }}</a>
   </p>
 
   <h1 class="page-title">Contact {{ assoc.name }}</h1>
@@ -55,7 +55,7 @@
 
     <div style="display:flex;gap:var(--s-3);flex-wrap:wrap;align-items:center;">
       <button type="submit" class="btn btn-primary">Send</button>
-      <a class="btn btn-quiet" href="{% url 'association_detail' assoc.pk %}">Cancel</a>
+      <a class="btn btn-quiet" href="{% url 'club_detail' assoc.pk %}">Cancel</a>
     </div>
   </form>
 
