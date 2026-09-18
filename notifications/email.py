@@ -18,9 +18,36 @@ BASE_URL = getattr(settings, 'SITE_BASE_URL', 'http://127.0.0.1:8000')
 
 
 def _send(to_user, subject, html_body, notification_type):
-    """Send an HTML email and record an in-app notification."""
+    """Record an in-app notification, and email it if we can.
+
+    THE ORDER MATTERS, and it used to be the other way round.
+
+    This returned early when a user had no email address, so somebody without
+    one got NOTHING: no mail, and no in-app notification either. The
+    notification centre exists precisely so a member without an email address
+    still finds out they have been paired for round three. On a club where
+    juniors sign up without an address, that was most of the members.
+
+    So the notification is created FIRST and unconditionally. The email is an
+    enhancement on top of it, not the thing itself.
+
+    AND email_sent NOW MEANS WHAT IT SAYS. It was set to True unconditionally
+    while the send used fail_silently=True, so a failed delivery left a record
+    asserting it had been delivered and nothing anywhere said otherwise. It is
+    taken from the return value of send(), which is the number of messages
+    actually handed over. That is the fifth time this project has found a step
+    reporting success having quietly done nothing, and the first where the
+    record itself was the lie.
+    """
+    note = Notification.objects.create(
+        recipient=to_user,
+        type=notification_type,
+        message=subject,
+        email_sent=False,
+    )
+
     if not to_user.email:
-        return
+        return note
 
     msg = EmailMultiAlternatives(
         subject=subject,
@@ -29,14 +56,21 @@ def _send(to_user, subject, html_body, notification_type):
         to=[to_user.email],
     )
     msg.attach_alternative(html_body, 'text/html')
-    msg.send(fail_silently=True)
 
-    Notification.objects.create(
-        recipient=to_user,
-        type=notification_type,
-        message=subject,
-        email_sent=True,
-    )
+    # fail_silently keeps one unreachable mail server from breaking a loop
+    # over twenty players mid-round. The try/except covers the failures
+    # fail_silently does not, such as the provider raising on a bad API key.
+    # Either way the notification above already exists, so nothing is lost.
+    try:
+        delivered = msg.send(fail_silently=True)
+    except Exception:
+        delivered = 0
+
+    if delivered:
+        note.email_sent = True
+        note.save(update_fields=['email_sent'])
+
+    return note
 
 
 def _html_to_plain(html):

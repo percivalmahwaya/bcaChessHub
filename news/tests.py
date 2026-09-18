@@ -162,3 +162,36 @@ class ClubScopeTest(TestCase):
         self.assertEqual(
             self.client.get(reverse('news_detail', args=[article.slug])).status_code,
             200)
+
+
+class HomePageNewsTest(TestCase):
+    """The front page carries the latest items.
+
+    The news section shipped on 2026-09-17 and nothing linked to it from the
+    home page, which had been sitting on a hardcoded "Nothing published yet"
+    since the redesign regardless of what was actually published.
+    """
+
+    def test_a_published_item_reaches_the_front_page(self):
+        make_article(title='Bulawayo Open concludes')
+        response = self.client.get('/')
+        self.assertContains(response, 'Bulawayo Open concludes')
+        self.assertContains(response, 'All news')
+
+    def test_the_front_page_respects_the_future_date_too(self):
+        """A home page quietly bypassing the gate would leak Saturday's
+        results onto the front page on Thursday, which is the one place it
+        would be seen fastest."""
+        make_article(title='Saturday results',
+                     published_at=timezone.now() + datetime.timedelta(days=2))
+        response = self.client.get('/')
+        self.assertNotContains(response, 'Saturday results')
+
+    def test_an_unpublished_item_does_not_reach_the_front_page(self):
+        make_article(title='Still a draft', is_published=False)
+        response = self.client.get('/')
+        self.assertNotContains(response, 'Still a draft')
+
+    def test_the_empty_state_still_shows_when_there_is_no_news(self):
+        response = self.client.get('/')
+        self.assertContains(response, 'Nothing published yet')

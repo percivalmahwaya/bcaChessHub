@@ -20,11 +20,36 @@ def notification_centre(request):
     elif read_filter == 'read':
         qs = qs.filter(is_read=True)
 
-    # Mark every unread notification in this filtered set as read
-    qs.filter(is_read=False).update(is_read=True)
-
+    # PAGE FIRST, MARK READ AFTERWARDS.
+    #
+    # This used to mark everything read BEFORE paging, using the same queryset
+    # it was about to display. Two things followed, both live:
+    #
+    #   1. Under the "Unread" filter that queryset IS is_read=False, so the
+    #      update emptied the very set the paginator then evaluated. Clicking
+    #      Unread marked everything read and showed a blank page, every time.
+    #
+    #   2. Even with no filter, every row reached the template already marked
+    #      read, so centre.html's highlighting for new items, which has been
+    #      written and correct since the page was built, had never once
+    #      rendered.
+    #
+    # Same shape as the dashboard bug fixed on 2026-09-16: call .update() and
+    # then evaluate the same lazy queryset.
     paginator = Paginator(qs, 20)
     page_obj  = paginator.get_page(request.GET.get('page'))
+
+    # Force evaluation while the rows still carry their real read state, so
+    # the template can show which ones were new.
+    shown = list(page_obj.object_list)
+
+    # Only what was actually put in front of the reader. Marking the other
+    # four pages read as well would mean they never get to see those as new,
+    # which is the one thing they opened this page to find out.
+    unseen = [n.pk for n in shown if not n.is_read]
+    if unseen:
+        Notification.objects.filter(pk__in=unseen).update(is_read=True)
+
     params    = request.GET.copy()
     params.pop('page', None)
 

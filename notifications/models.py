@@ -22,7 +22,13 @@ class Notification(models.Model):
     email_sent = models.BooleanField(default=False)
 
     class Meta:
-        ordering = ['-sent_at']
+        # -pk breaks the tie. sent_at is auto_now_add, and several
+        # notifications raised in the same request (a round completing, a
+        # tournament finishing) can land on the same timestamp, leaving their
+        # order undefined: the newest could appear below the older ones, and
+        # differently on each page load. Same reason the ratings page breaks
+        # ties on username.
+        ordering = ['-sent_at', '-pk']
 
     def __str__(self):
         return f"[{self.type}] → {self.recipient.username}"

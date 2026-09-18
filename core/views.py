@@ -4,7 +4,10 @@ from functools import lru_cache
 from django.conf import settings
 from django.shortcuts import render
 from tournaments.models import Tournament
+from django.utils import timezone
+
 from members.models import Member, ranked_by_lichess
+from news.models import Article
 from matches.models import Match
 from associations.models import Association
 
@@ -26,9 +29,18 @@ def home(request):
         'associations': Association.objects.filter(is_active=True).count(),
     }
 
+    # The same two gates the news section itself uses: published, and not
+    # dated into the future. Written out here rather than reaching into
+    # news.views, because a home page quietly bypassing the future-dating gate
+    # would leak Saturday's results onto the front page on Thursday.
+    latest_news = Article.objects.filter(
+        is_published=True, published_at__lte=timezone.now()
+    )[:4]
+
     return render(request, 'home.html', {
         'upcoming': upcoming,
         'top_players': top_players,
+        'latest_news': latest_news,
         'stats': stats,
     })
 

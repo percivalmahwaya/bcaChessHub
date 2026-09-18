@@ -112,12 +112,34 @@
 
       {# ---------------------------------------------------------- the news #}
       <div class="panel panel-tight" style="margin-top:var(--s-5);">
-        <div class="panel-head"><h3>From the region</h3></div>
-        <div class="empty">
-          <strong>Nothing published yet</strong>
-          Results, reports from the hall, and news from around Matabeleland
-          will be posted here.
+        <div class="panel-head">
+          <h3>From the region</h3>
+          {% if latest_news %}<a href="{% url 'news_list' %}">All news</a>{% endif %}
         </div>
+        {% if latest_news %}
+          <table class="grid">
+            <tbody>
+              {% for item in latest_news %}
+                <tr>
+                  <td>
+                    <a href="{{ item.get_absolute_url }}" style="font-weight:600;">
+                      {{ item.title }}</a>
+                    <div class="tiny muted">{{ item.summary|truncatechars:110 }}</div>
+                    <div class="tiny muted">
+                      {{ item.source }} &middot; {{ item.published_at|date:"j M Y" }}
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty">
+            <strong>Nothing published yet</strong>
+            Results, reports from the hall, and news from around Matabeleland
+            will be posted here.
+          </div>
+        {% endif %}
       </div>
     </div>
 
