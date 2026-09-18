@@ -227,6 +227,27 @@ p  { margin: 0 0 var(--s-4); }
   font-size: var(--t-sm); cursor: pointer;
 }
 
+/* ------------------------------------------------------------ skip link */
+
+/* Off screen until focused, then a real button at the top left. Not
+   display:none and not visibility:hidden: both remove it from the tab order,
+   which is the one thing it exists to be in.
+
+   scroll-margin-top clears the sticky masthead. Without it the jump lands
+   with the first heading tucked underneath the header, so the reader arrives
+   at content they cannot see. */
+.skip {
+  position: absolute; left: var(--s-3); top: -3rem; z-index: 100;
+  background: var(--bch-terracotta); color: var(--bch-white);
+  padding: var(--s-2) var(--s-4); border-radius: var(--r-sm);
+  font-size: var(--t-sm); font-weight: 600;
+  transition: top .12s ease;
+}
+.skip:focus { top: var(--s-3); text-decoration: none; color: var(--bch-white); }
+
+#content { scroll-margin-top: 72px; }
+#content:focus { outline: none; }
+
 /* --------------------------------------------------------------- bits */
 
 .btn {
@@ -689,4 +710,15 @@ select {
      list of headlines reading as a wall of text. */
   .news-row { flex-direction: column-reverse; gap: var(--s-3); }
   .news-thumb { flex: 1 1 auto; width: 100%; }
+}
+
+/* A game record, shown as selectable text so the copy button is a
+   convenience rather than the only way to get it. Wraps rather than scrolls
+   sideways: a PGN is long and a horizontal scrollbar inside a details panel
+   on a phone is close to unusable. */
+.pgn {
+  font-family: var(--font-mono); font-size: var(--t-xs); line-height: 1.6;
+  white-space: pre-wrap; word-break: break-word;
+  background: var(--bch-bone); border: var(--line); border-radius: var(--r);
+  padding: var(--s-3); margin: 0; max-height: 16rem; overflow-y: auto;
 }

@@ -27,6 +27,15 @@
     {% if article.club %}
       &middot; <a href="{% url 'club_detail' article.club.pk %}">{{ article.club.name }}</a>
     {% endif %}
+    {% comment %}
+      Only when it was actually changed after publishing, not on every item.
+      A section that relays other people's announcements has to be able to
+      say "this was corrected", and a label printed on everything says
+      nothing.
+    {% endcomment %}
+    {% if article.was_updated %}
+      &middot; <span class="tag tag-quiet">Updated {{ article.updated_at|date:"j M Y" }}</span>
+    {% endif %}
   </p>
 
   {% if article.is_relayed %}

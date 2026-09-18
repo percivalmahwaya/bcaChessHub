@@ -12,7 +12,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.messages import constants as message_levels
 from django.contrib.messages import get_messages
 from django.template.loader import get_template
-from django.test import TestCase
+from django.conf import settings
+from django.template import loader
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from associations.models import Association
@@ -271,3 +273,108 @@ class DjangoCommentsDoNotLeak(TestCase):
             offenders, [],
             "multi-line {# #} comments are rendered into the page for every "
             f"visitor to download. Use {{% comment %}}: {offenders}")
+
+
+class ErrorPagesTest(TestCase):
+    """404 and 500.
+
+    Django served a bare white page reading "Not Found" until 2026-09-18, on a
+    site that now 301-redirects two old URL prefixes, so wrong URLs are live
+    traffic rather than a hypothetical.
+    """
+
+    @override_settings(DEBUG=False, ALLOWED_HOSTS=['testserver', 'localhost'])
+    def test_a_missing_page_gets_the_real_404(self):
+        response = self.client.get('/no-such-page-exists/')
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, 'That page is not here', status_code=404)
+
+    @override_settings(DEBUG=False, ALLOWED_HOSTS=['testserver', 'localhost'])
+    def test_the_404_offers_somewhere_to_go(self):
+        """A 404 that only apologises leaves the reader where they were."""
+        response = self.client.get('/no-such-page-exists/')
+        body = response.content.decode()
+        for destination in ['/rankings/', '/tournaments/', '/clubs/', '/news/']:
+            self.assertIn(destination, body,
+                          f'the 404 should offer {destination}')
+
+    @override_settings(DEBUG=False, ALLOWED_HOSTS=['testserver', 'localhost'])
+    def test_the_404_still_has_the_navigation(self):
+        """page_not_found renders WITH the request, so context processors run
+        and the masthead works. That is what lets 404.html extend base.html
+        while 500.html must not."""
+        response = self.client.get('/no-such-page-exists/')
+        self.assertContains(response, 'Bulawayo', status_code=404)
+
+    def test_the_500_page_renders_with_no_context_whatsoever(self):
+        """THE PROPERTY THAT MATTERS.
+
+        Django's server_error handler renders this template WITHOUT the
+        request, so context processors never run. If the page depended on
+        `user` or the unread notification count it would fail at exactly the
+        moment it is needed and the visitor would get the blank page this
+        exists to replace. Verified by sabotage: making it extend base.html
+        produced a page with an EMPTY BODY and no error message at all.
+        """
+        html = loader.get_template('500.html').render()
+        self.assertIn('Something went wrong', html)
+        self.assertIn('Bulawayo Chess Hub', html)
+
+    def test_the_500_page_does_not_extend_base(self):
+        """A 500 often means the DATABASE is unreachable, and base.html's
+        context processor runs a query. An error page that queries the
+        database is an error page that fails when it is most needed.
+
+        Asserted on the source rather than the output, because a rendered
+        page cannot tell you why it worked.
+        """
+        source = (settings.BASE_DIR / 'templates' / '500.html').read_text(
+            encoding='utf-8')
+        self.assertNotIn('{% extends', source, '500.html must stand alone')
+        self.assertNotIn('unread_notification_count', source)
+
+    def test_the_500_page_carries_its_own_colours(self):
+        """The stylesheet is linked and will very likely load, but the page
+        must be readable if it does not."""
+        source = (settings.BASE_DIR / 'templates' / '500.html').read_text(
+            encoding='utf-8')
+        self.assertIn('<style>', source)
+        self.assertIn('#b85c38', source, 'the terracotta, written out')
+
+
+class SkipLinkTest(TestCase):
+    """Skip to content.
+
+    It became more necessary on 2026-09-17, when the masthead was made sticky:
+    a keyboard user now tabs through six navigation links on every page before
+    reaching what they came for.
+    """
+
+    def test_it_is_the_first_thing_in_the_body(self):
+        body = self.client.get('/').content.decode()
+        start = body.index('<body>')
+        self.assertLess(body.index('class="skip"', start),
+                        body.index('<header', start),
+                        'a skip link after the header skips nothing')
+
+    def test_it_points_at_a_target_that_exists(self):
+        body = self.client.get('/').content.decode()
+        self.assertIn('href="#content"', body)
+        self.assertIn('id="content"', body)
+
+    def test_the_target_can_receive_focus(self):
+        """Without tabindex the browser scrolls to the anchor but focus stays
+        in the header, so the next Tab drops the reader straight back into the
+        navigation they just skipped."""
+        body = self.client.get('/').content.decode()
+        self.assertIn('id="content" tabindex="-1"', body)
+
+    def test_it_is_hidden_by_position_not_by_display(self):
+        """display:none and visibility:hidden both remove an element from the
+        tab order, which is the one thing this exists to be in."""
+        css = (settings.BASE_DIR / 'static' / 'css' / 'bch.css').read_text(
+            encoding='utf-8')
+        skip = css[css.index('.skip {'):css.index('.skip:focus')]
+        self.assertIn('position: absolute', skip)
+        self.assertNotIn('display: none', skip)
+        self.assertNotIn('visibility: hidden', skip)

@@ -14,6 +14,17 @@
 </head>
 <body>
 
+{% comment %}
+  Skip to content. The FIRST focusable thing on the page, off screen until it
+  is focused.
+
+  It matters more here since the masthead became sticky: a keyboard user now
+  tabs through six navigation links on every single page before reaching the
+  thing they came for, and somebody reading the ratings table with a screen
+  reader hears the whole navigation again on every page load.
+{% endcomment %}
+<a class="skip" href="#content">Skip to content</a>
+
 <header class="masthead" id="masthead">
   <div class="wrap">
     <a class="brand" href="/"><span class="brand-mark"></span>Bulawayo <b>Chess Hub</b></a>
@@ -58,7 +69,14 @@
 </div>
 {% endif %}
 
+{% comment %}
+  tabindex="-1" so the skip link can actually move focus here. Without it the
+  browser scrolls to the anchor but focus stays in the header, and the next
+  Tab drops the reader straight back into the navigation they just skipped.
+{% endcomment %}
+<main id="content" tabindex="-1">
 {% block content %}{% endblock %}
+</main>
 
 <footer class="foot">
   <div class="wrap">

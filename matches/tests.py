@@ -510,3 +510,46 @@ class LinkLichessTest(TestCase):
         response = self._link(self.LEGAL_PGN, winner='white', status='mate')
         self.assertContains(response, 'confirms')
         self.assertNotContains(response, 'DISAGREE')
+
+
+class CopyPgnTest(TestCase):
+    """The generic advice is copy-to-clipboard on code snippets. There is no
+    code on a chess site; the same need is a player wanting their moves in an
+    engine, and selecting a long PGN by hand on a phone is genuinely hard.
+    """
+
+    def setUp(self):
+        assoc = make_assoc()
+        self.white = make_member('cw', assoc=assoc)
+        self.black = make_member('cb', assoc=assoc)
+        self.tournament = Tournament.objects.create(
+            name='Copy Open', association=assoc, location='Bulawayo',
+            start_date=datetime.date(2026, 1, 1), end_date=datetime.date(2026, 1, 2),
+            num_rounds=3, max_players=8)
+        self.round = Round.objects.create(tournament=self.tournament, number=1)
+
+    def _match(self, pgn):
+        return Match.objects.create(
+            tournament=self.tournament, round=self.round,
+            white_player=self.white, black_player=self.black,
+            result='white_win', board_number=1, pgn=pgn)
+
+    def test_the_moves_are_on_the_page_as_selectable_text(self):
+        """The button is a convenience. Without JavaScript, or on a browser
+        with no Clipboard API, the text itself is what makes the feature
+        survivable rather than broken."""
+        match = self._match('1. e4 e5 2. Nf3 Nc6 1-0')
+        response = self.client.get(reverse('match_detail', args=[match.pk]))
+        self.assertContains(response, 'id="pgn-text"')
+        self.assertContains(response, '2. Nf3 Nc6')
+
+    def test_the_copy_button_is_offered(self):
+        match = self._match('1. e4 e5 1-0')
+        response = self.client.get(reverse('match_detail', args=[match.pk]))
+        self.assertContains(response, 'Copy PGN')
+
+    def test_a_match_with_no_game_offers_neither(self):
+        match = self._match('')
+        response = self.client.get(reverse('match_detail', args=[match.pk]))
+        self.assertNotContains(response, 'Copy PGN')
+        self.assertNotContains(response, 'id="pgn-text"')

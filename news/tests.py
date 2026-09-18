@@ -195,3 +195,40 @@ class HomePageNewsTest(TestCase):
     def test_the_empty_state_still_shows_when_there_is_no_news(self):
         response = self.client.get('/')
         self.assertContains(response, 'Nothing published yet')
+
+
+class LastUpdatedTest(TestCase):
+    """updated_at was stored from the start and never shown.
+
+    It matters on a section that RELAYS other people's announcements: if a
+    federation corrects a statement and the item here is corrected too, a
+    reader who saw the first version needs to know.
+    """
+
+    def test_a_freshly_published_item_is_not_marked_updated(self):
+        """Saving IS publishing. Without a window every item would carry
+        "updated" from the moment it went live, which teaches the reader to
+        ignore the word before it ever means anything."""
+        article = make_article()
+        self.assertFalse(article.was_updated)
+        response = self.client.get(reverse('news_detail', args=[article.slug]))
+        self.assertNotContains(response, 'Updated')
+
+    def test_an_item_corrected_later_says_so(self):
+        article = make_article(
+            published_at=timezone.now() - datetime.timedelta(days=3))
+        article.summary = 'Corrected: thirty eight players, not forty.'
+        article.save()
+        article.refresh_from_db()
+        self.assertTrue(article.was_updated)
+        response = self.client.get(reverse('news_detail', args=[article.slug]))
+        self.assertContains(response, 'Updated')
+
+    def test_the_list_shows_it_too(self):
+        article = make_article(
+            title='Corrected item',
+            published_at=timezone.now() - datetime.timedelta(days=3))
+        article.summary = 'Now with the right number.'
+        article.save()
+        response = self.client.get(reverse('news_list'))
+        self.assertContains(response, 'updated')

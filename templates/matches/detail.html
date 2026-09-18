@@ -202,6 +202,35 @@
       </defs>
     </svg>
 
+    {% comment %}
+      Copy the game record.
+
+      The generic advice is "copy-to-clipboard on code snippets". There is no
+      code on a chess site, but there is the exact same need: a player who has
+      just reviewed their loss wants the moves in an engine, and selecting a
+      long PGN by hand on a phone is genuinely difficult.
+
+      PROGRESSIVE ENHANCEMENT, in the same shape as everything else here. The
+      moves are in a details element as real selectable text, so the feature
+      works with no JavaScript at all and the button only saves a step. The
+      Clipboard API also needs a secure context, so on anything but HTTPS or
+      localhost the button would silently not work, and the text underneath is
+      what makes that survivable rather than broken.
+    {% endcomment %}
+    <details class="panel" style="margin-top:var(--s-5);">
+      <summary style="padding:var(--s-3) var(--s-4);cursor:pointer;font-weight:600;">
+        The moves, as PGN
+      </summary>
+      <div class="panel-body" style="border-top:var(--line);">
+        <div class="toolbar" style="margin-bottom:var(--s-3);">
+          <button type="button" class="btn btn-quiet btn-sm" id="copy-pgn"
+                  data-idle="Copy PGN" data-done="Copied">Copy PGN</button>
+          <span class="tiny muted">Paste it into any engine or database.</span>
+        </div>
+        <pre id="pgn-text" class="pgn">{{ match.pgn }}</pre>
+      </div>
+    </details>
+
   {% elif match.pgn %}
     <div class="panel">
       <div class="empty">
@@ -319,6 +348,27 @@
   });
 
   go(0);
+})();
+
+// Copy the PGN. The moves are already on the page as selectable text, so
+// this only saves a step, and a browser without the Clipboard API or served
+// over plain HTTP simply keeps the text.
+(function () {
+  var button = document.getElementById('copy-pgn');
+  var source = document.getElementById('pgn-text');
+  if (!button || !source) { return; }
+  if (!navigator.clipboard) { button.remove(); return; }
+
+  button.addEventListener('click', function () {
+    navigator.clipboard.writeText(source.textContent.trim()).then(function () {
+      button.textContent = button.dataset.done;
+      setTimeout(function () { button.textContent = button.dataset.idle; }, 1600);
+    }).catch(function () {
+      // Refusing silently would leave somebody tapping a button that does
+      // nothing. Tell them the text below is theirs to select.
+      button.textContent = 'Select the text below';
+    });
+  });
 })();
 </script>
 {% endif %}

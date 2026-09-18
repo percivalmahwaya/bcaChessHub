@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}Page not found{% endblock %}
+
+{% comment %}
+  Django served a bare white page reading "Not Found" until 2026-09-18.
+
+  This one extends base.html, which is safe: Django's page_not_found handler
+  renders with the request, so context processors run and the navigation and
+  the unread badge work normally. The 500 page deliberately does NOT extend
+  it, for reasons written at the top of that file.
+
+  Every link here goes somewhere real. A 404 that only says sorry leaves the
+  reader exactly where they were, and the four things below are the four
+  reasons anybody opens this site.
+{% endcomment %}
+
+{% block content %}
+<div class="wrap page" style="max-width:34rem;">
+
+  <p class="tiny muted num">404</p>
+  <h1 class="page-title">That page is not here</h1>
+  <p class="page-sub">
+    The link may be old, or mistyped. Nothing is broken.
+  </p>
+
+  <div class="panel">
+    <div class="panel-head"><h3>Try one of these</h3></div>
+    <table class="grid">
+      <tbody>
+        <tr>
+          <td>
+            <a href="{% url 'rankings' %}" style="font-weight:600;">Ratings</a>
+            <div class="tiny muted">Blitz and bullet for every linked player.</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <a href="{% url 'tournament_list' %}" style="font-weight:600;">Tournaments</a>
+            <div class="tiny muted">Entries, pairings, standings and crosstables.</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <a href="{% url 'club_list' %}" style="font-weight:600;">Clubs</a>
+            <div class="tiny muted">Chess across Bulawayo and the surrounding region.</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <a href="{% url 'news_list' %}" style="font-weight:600;">News</a>
+            <div class="tiny muted">From the clubs and the federations.</div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="small muted" style="margin-top:var(--s-5);">
+    Looking for a player? <a href="{% url 'rankings' %}">Search the ratings list</a>.
+    Or go back to the <a href="/">home page</a>.
+  </p>
+
+</div>
+{% endblock %}

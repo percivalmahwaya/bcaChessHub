@@ -1,0 +1,65 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Something went wrong</title>
+
+{% comment %}
+  DELIBERATELY STANDALONE. This does not extend base.html, and that is the
+  whole point of the file.
+
+  Two reasons, both real:
+
+  1. Django's server_error handler renders this template WITHOUT the request,
+     so context processors do not run. base.html asks for the unread
+     notification count and the signed-in user, and neither would exist.
+
+  2. A 500 often means the DATABASE is unreachable. base.html is cheap but
+     the context processor behind it runs a query, and an error page that
+     itself queries the database is an error page that fails when it is most
+     needed, leaving the visitor with the blank page this exists to replace.
+
+  So the styling is inline and the page touches nothing. The stylesheet is
+  still linked because WhiteNoise serves it from disk and it will very likely
+  work, but every colour below is written out so the page is readable even if
+  it does not.
+{% endcomment %}
+<link rel="stylesheet" href="{% static 'css/bch.css' %}">
+<style>
+  body { margin: 0; background: #faf7f1; color: #1b1a18;
+         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+  .bar { height: 6px; background-image:
+           linear-gradient(90deg, #b85c38 25%, transparent 25%, transparent 50%,
+                           #b85c38 50%, #b85c38 75%, transparent 75%);
+         background-size: 16px 6px; }
+  .box { max-width: 34rem; margin: 0 auto; padding: 48px 24px; }
+  h1 { font-size: 1.75rem; margin: 0 0 8px; letter-spacing: -0.02em; }
+  p { line-height: 1.6; color: #3b3a36; }
+  .quiet { color: #6b6862; font-size: .875rem; }
+  a { color: #b85c38; }
+  .home { display: inline-block; margin-top: 16px; padding: 8px 16px;
+          background: #b85c38; color: #fff; text-decoration: none;
+          border-radius: 2px; font-weight: 600; font-size: .875rem; }
+</style>
+</head>
+<body>
+
+<div class="bar"></div>
+
+<div class="box">
+  <p class="quiet">Bulawayo Chess Hub</p>
+  <h1>Something went wrong at our end</h1>
+  <p>
+    This is not your doing and nothing you typed caused it. The page failed
+    to build, and the failure has been logged.
+  </p>
+  <p class="quiet">
+    If you were recording a result or confirming an entry, check the
+    tournament page before doing it again, in case it went through.
+  </p>
+  <a class="home" href="/">Back to the home page</a>
+</div>
+
+</body>
+</html>

@@ -37,6 +37,7 @@
               {{ article.source }}
               &middot; {{ article.published_at|date:"j M Y" }}
               {% if article.club %}&middot; {{ article.club.name }}{% endif %}
+              {% if article.was_updated %}&middot; updated {{ article.updated_at|date:"j M" }}{% endif %}
             </p>
           </div>
           {% if article.image %}

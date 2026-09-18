@@ -21,6 +21,8 @@ WHY THAT IS ALSO RIGHT HERE, and not just imitation:
 So: an administrator writes or relays an item, credits the source, and links
 back to the original. source_url is what keeps that honest.
 """
+import datetime
+
 from django.db import models
 from django.urls import reverse
 from django.utils import timezone
@@ -98,6 +100,22 @@ class Article(models.Model):
 
     def get_absolute_url(self):
         return reverse('news_detail', args=[self.slug])
+
+    # A save within this window of publishing is the act of publishing, not a
+    # later correction. Without it every item would carry "updated" from the
+    # moment it went live, which trains the reader to ignore the word before
+    # it ever means anything.
+    EDIT_WINDOW = datetime.timedelta(minutes=5)
+
+    @property
+    def was_updated(self):
+        """True when this was materially changed after it was published.
+
+        Worth showing on a section that RELAYS other people's announcements:
+        if a federation corrects a statement and the item here is corrected
+        too, a reader who saw the first version needs to know.
+        """
+        return self.updated_at - self.published_at > self.EDIT_WINDOW
 
     @property
     def is_relayed(self):
