@@ -79,3 +79,25 @@ def security(request):
         # template so both numbers on that page come from one place.
         'deploy_check_count': 29,
     })
+
+
+def site_search(request):
+    """The search results page.
+
+    A GET form with a `q` parameter, so a result is a URL that can be
+    bookmarked, mailed and gone back to. That is also why it is not a
+    JavaScript type-ahead: a page that only exists while a script is running
+    cannot be linked to, and this site already works without JavaScript
+    everywhere else.
+    """
+    from .search import MIN_QUERY, search
+
+    query = (request.GET.get('q') or '').strip()
+    groups, total = search(query)
+    return render(request, 'search.html', {
+        'query': query,
+        'groups': groups,
+        'total': total,
+        'too_short': bool(query) and len(query) < MIN_QUERY,
+        'min_query': MIN_QUERY,
+    })

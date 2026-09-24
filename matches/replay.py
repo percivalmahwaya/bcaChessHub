@@ -111,3 +111,109 @@ def replay(pgn_text):
         'opening': headers.get('Opening', ''),
         'time_control': headers.get('TimeControl', ''),
     }
+
+
+# --------------------------------------------------------------- diagrams
+#
+# WHY THESE ARE NOT THE VIEWER'S CODE
+# ===================================
+# The game viewer ships every position and lets seventy lines of JavaScript
+# draw whichever one you are looking at. A printed report has no JavaScript:
+# it is saved as a PDF, mailed to a parent, and opened on a machine that will
+# never reach this server. So a diagram for print has to arrive already drawn,
+# as plain HTML the browser lays out and the printer inks.
+#
+# It also only ever needs ONE position per game, the last one, which is the
+# position worth putting on paper: how the game finished.
+
+PIECE_NAMES = {
+    'p': 'pawn', 'n': 'knight', 'b': 'bishop',
+    'r': 'rook', 'q': 'queen', 'k': 'king',
+}
+
+FILES = 'abcdefgh'
+
+
+def squares(board, highlight=None):
+    """A 64-character board as cells a template can loop over.
+
+    Everything a square needs is decided here rather than in the template,
+    because working out whether a square is dark from a forloop counter in
+    Django template syntax is the sort of thing that produces the `add:"-"`
+    class of bug this project has already shipped twice.
+    """
+    highlight = set(highlight or [])
+    cells = []
+    for i, ch in enumerate(board):
+        rank, file = divmod(i, 8)
+        piece = None if ch == '.' else ch
+        cells.append({
+            # Coordinates in the board's own 8x8 grid, so the template can
+            # place a rect without doing arithmetic in Django template
+            # syntax, which is the language that made "spots left" blank.
+            'x': file,
+            'y': rank,
+            'dark': (rank + file) % 2 == 1,
+            'piece': piece,
+            'white': bool(piece) and piece.isupper(),
+            'name': PIECE_NAMES.get(ch.lower(), '') if piece else '',
+            'sym': 'pc-' + ch.lower() if piece else '',
+            'square': f'{FILES[file]}{8 - rank}',
+            'lit': i in highlight,
+        })
+    return cells
+
+
+def final_position(pgn_text):
+    """The position a game finished in, ready to print.
+
+    Returns None when there is no readable game, which the template renders
+    as nothing at all. A tournament where most games were played over the
+    board and never linked to Lichess will have very few of these, and that
+    is the honest outcome: a diagram can only be printed for a game whose
+    moves were actually recorded.
+    """
+    if not pgn_text or not pgn_text.strip():
+        return None
+
+    try:
+        game = chess.pgn.read_game(io.StringIO(pgn_text))
+    except Exception:
+        return None
+    if game is None:
+        return None
+
+    board = game.board()
+    truncated = bool(game.errors)
+    plies = 0
+    last = None
+
+    for move in game.mainline_moves():
+        if not board.is_legal(move):
+            # Same trap as replay(): python-chess stops at the first illegal
+            # move and returns what came before as though the game ended
+            # there. On paper that is worse than in the viewer, because a
+            # printed diagram carries no hint that anything was wrong.
+            truncated = True
+            break
+        last = move
+        board.push(move)
+        plies += 1
+
+    if not plies:
+        return None
+
+    headers = game.headers
+    return {
+        'squares': squares(
+            board_string(board),
+            [_index(last.from_square), _index(last.to_square)] if last else None),
+        'moves': (plies + 1) // 2,
+        'plies': plies,
+        'truncated': truncated,
+        'result': headers.get('Result', ''),
+        'eco': headers.get('ECO', ''),
+        'opening': headers.get('Opening', ''),
+        'checkmate': board.is_checkmate(),
+        'to_move': 'White' if board.turn else 'Black',
+    }

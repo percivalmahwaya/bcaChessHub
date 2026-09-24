@@ -109,6 +109,45 @@
       color: var(--stone); font-size: 9.5px; text-align: right;
     }
 
+
+    /* ---------------------------------------------------- board diagrams
+
+       THE TRAP THIS CSS IS BUILT AROUND: browsers strip background colours
+       when printing unless told not to. A board whose dark squares are a
+       background and nothing else therefore prints as SIXTY FOUR BLANK
+       SQUARES, which is an empty board that looks exactly like a correctly
+       rendered one until you notice there is no checker pattern.
+
+       So it is defended twice. print-color-adjust asks for the colours, and
+       every square also carries a hairline border, so if a printer or a PDF
+       engine ignores that request the board still comes out as a legible
+       grid with the pieces on it, just without the shading. Degraded, not
+       destroyed. */
+    .diagram-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px;
+    }
+    .diagram { break-inside: avoid; page-break-inside: avoid; }
+
+    /* The board is one SVG. Every colour below is a FILL on a drawn shape,
+       never a background, so nothing here depends on a printer honouring
+       print-color-adjust. See the comment on the markup. */
+    svg.board { width: 100%; height: auto; display: block; }
+    .sq-l   { fill: #fff; }          /* the paper itself, drawn explicitly */
+    .sq-d   { fill: var(--sand); }
+    .sq-lit { fill: none; stroke: var(--terracotta); stroke-width: .08; }
+    .frame  { fill: none; stroke: var(--granite); stroke-width: .06; }
+    /* A white piece filled white is invisible on a light square, so it is an
+       outline. A black piece is solid. That is also how they read in every
+       printed bulletin, so nobody has to learn anything. Stroke widths are in
+       the symbol's own 45 unit coordinate system, so they scale with it. */
+    .pc-w { fill: #fff; stroke: var(--ink); stroke-width: 1.4; }
+    .pc-b { fill: var(--ink); stroke: var(--ink); stroke-width: 1.4; }
+    .diagram-cap {
+      font-size: 8.5px; line-height: 1.35; margin-top: 3px; color: var(--granite);
+    }
+    .diagram-cap strong { font-size: 9px; }
+    .diagram-warn { color: var(--terracotta); font-weight: 700; }
+
     @page { margin: 14mm; size: A4 landscape; }
     @media print {
       body { padding: 0; }
@@ -264,6 +303,94 @@
         </table>
       </div>
     {% endfor %}
+  {% endif %}
+
+
+  {% if wanted_diagrams %}
+    {% comment %}
+      Final positions, one per recorded game.
+
+      ONLY GAMES WITH A PGN APPEAR, and on a club whose games are mostly
+      played over the board that will be a minority of them. That is the
+      honest outcome rather than a gap: a diagram can only be printed for a
+      game whose moves were actually written down, and here that means one
+      linked to Lichess. Saying so on the page is better than printing
+      nothing and letting a director wonder what broke.
+    {% endcomment %}
+    <div class="round-section" style="margin-top:22px;">
+      <div class="round-header">Final positions</div>
+
+      {% if diagrams %}
+        {% include "matches/_pieces.html" %}
+        <div class="diagram-grid">
+          {% for item in diagrams %}
+            <div class="diagram">
+              {% comment %}
+                ONE INLINE SVG, NOT 64 DIVS WITH BACKGROUNDS.
+
+                The first version drew each square as a div and coloured the
+                dark ones with a CSS background. Browsers strip background
+                colours when printing unless `print-color-adjust: exact` asks
+                them not to, and that is a REQUEST: an engine is free to
+                ignore it, and this document is printed on whatever the club
+                has and saved as PDF by whatever the reader has. A board whose
+                dark squares vanish is an empty board that looks exactly like
+                a correct one.
+
+                A rect with a fill is CONTENT. No print engine drops content,
+                in any browser, so the checker pattern is no longer something
+                to hope for. It also scales perfectly instead of relying on
+                fractional CSS borders, and it is one element instead of 64.
+              {% endcomment %}
+              <svg class="board" viewBox="0 0 8 8" role="img"
+                   aria-label="Final position after {{ item.position.moves }} moves">
+                <rect x="0" y="0" width="8" height="8" class="sq-l"/>
+                {% for cell in item.position.squares %}
+                  {% if cell.dark %}
+                    <rect x="{{ cell.x }}" y="{{ cell.y }}" width="1" height="1" class="sq-d"/>
+                  {% endif %}
+                {% endfor %}
+                {% for cell in item.position.squares %}
+                  {% if cell.lit %}
+                    <rect x="{{ cell.x }}" y="{{ cell.y }}" width="1" height="1" class="sq-lit"/>
+                  {% endif %}
+                {% endfor %}
+                {% for cell in item.position.squares %}
+                  {% if cell.piece %}
+                    <use href="#{{ cell.sym }}" x="{{ cell.x }}" y="{{ cell.y }}"
+                         width="1" height="1"
+                         class="{% if cell.white %}pc-w{% else %}pc-b{% endif %}">
+                      <title>{% if cell.white %}White{% else %}Black{% endif %} {{ cell.name }} on {{ cell.square }}</title>
+                    </use>
+                  {% endif %}
+                {% endfor %}
+                <rect x="0" y="0" width="8" height="8" class="frame"/>
+              </svg>
+              <div class="diagram-cap">
+                <strong>R{{ item.round.number }}{% if item.match.board_number %} board {{ item.match.board_number }}{% endif %}</strong><br>
+                {{ item.match.white_player }} &ndash; {{ item.match.black_player|default:"bye" }}<br>
+                {% if item.match.result == 'white_win' %}1 &ndash; 0
+                {% elif item.match.result == 'black_win' %}0 &ndash; 1
+                {% elif item.match.result == 'draw' %}&frac12; &ndash; &frac12;
+                {% else %}<span class="quiet">{{ item.match.get_result_display }}</span>
+                {% endif %}
+                after {{ item.position.moves }} move{{ item.position.moves|pluralize }}{% if item.position.checkmate %}, mate{% endif %}
+                {% if item.match.opening %}<br><span class="quiet">{{ item.match.opening }}</span>{% endif %}
+                {% if item.position.truncated %}
+                  <br><span class="diagram-warn">record incomplete, position is where it stops</span>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="quiet" style="margin:8px 0;">
+          No game in this tournament has a recorded move list, so there is
+          nothing to diagram. Positions can only be printed for games linked
+          to Lichess.
+        </p>
+      {% endif %}
+    </div>
   {% endif %}
 
   <div class="foot">

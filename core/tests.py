@@ -378,3 +378,186 @@ class SkipLinkTest(TestCase):
         self.assertIn('position: absolute', skip)
         self.assertNotIn('display: none', skip)
         self.assertNotIn('visibility: hidden', skip)
+
+
+class SiteSearchTest(TestCase):
+    """Site search.
+
+    The dangerous bug in a search box is not a missing result. It is an extra
+    one: something the searcher was never allowed to see, surfaced because a
+    visibility rule lives in a view somewhere and the search query was written
+    from the model instead.
+    """
+
+    def setUp(self):
+        from django.contrib.auth.models import User
+        from django.utils import timezone
+        from members.models import Member
+        from news.models import Article
+        from tournaments.models import Tournament
+        import datetime
+
+        self.club = Association.objects.create(
+            name='Bulawayo Chess Association', city='Bulawayo',
+            email='bca@example.com')
+        other = Association.objects.create(
+            name='Gweru Chess Club', city='Gweru', email='gweru@example.com')
+
+        user = User.objects.create_user('tendai', password='x',
+                                        first_name='Tendai', last_name='Moyo')
+        self.member = Member.objects.create(user=user, association=self.club,
+                                            is_active=True)
+        gone = User.objects.create_user('retired', password='x',
+                                        first_name='Tendai', last_name='Ncube')
+        self.inactive = Member.objects.create(user=gone, association=self.club,
+                                              is_active=False)
+
+        today = timezone.now().date()
+        self.tournament = Tournament.objects.create(
+            name='Bulawayo Open', association=self.club, location='Bulawayo',
+            start_date=today, end_date=today)
+
+        now = timezone.now()
+        self.live = Article.objects.create(
+            title='Bulawayo Open results', slug='open-results',
+            source='BCA', summary='Who won', body='The full report',
+            is_published=True, published_at=now - datetime.timedelta(days=1))
+        self.draft = Article.objects.create(
+            title='Bulawayo Open draft', slug='open-draft',
+            source='BCA', summary='Not ready', body='Secret',
+            is_published=False, published_at=now - datetime.timedelta(days=1))
+        self.embargoed = Article.objects.create(
+            title='Bulawayo Open preview', slug='open-preview',
+            source='BCA', summary='Saturday', body='Embargoed',
+            is_published=True, published_at=now + datetime.timedelta(days=3))
+
+    def _titles(self, groups):
+        return [i.title for g in groups if g['kind'] == 'news' for i in g['items']]
+
+    # ---------------------------------------------------------- visibility
+
+    def test_an_unpublished_article_is_never_returned(self):
+        from core.search import search
+        groups, _ = search('Bulawayo Open')
+        titles = self._titles(groups)
+        self.assertIn('Bulawayo Open results', titles)
+        self.assertNotIn('Bulawayo Open draft', titles)
+
+    def test_a_future_dated_article_is_never_returned(self):
+        """THE GATE THAT IS EASY TO MISS.
+
+        An editor writes up a Saturday event on Thursday, marks it published
+        and dates it forward. Filtering on is_published alone returns only
+        articles somebody deliberately published, looks entirely correct, and
+        leaks Saturday's results on Thursday. The home page had to relearn
+        this on 2026-09-18.
+        """
+        from core.search import search
+        groups, _ = search('Bulawayo Open')
+        self.assertNotIn('Bulawayo Open preview', self._titles(groups))
+
+    def test_an_inactive_member_is_not_returned(self):
+        from core.search import search
+        groups, _ = search('Tendai')
+        found = [i for g in groups if g['kind'] == 'player' for i in g['items']]
+        self.assertEqual(len(found), 1, 'the deactivated member leaked')
+
+    # ------------------------------------------------------------ matching
+
+    def test_it_finds_a_player_by_either_name(self):
+        from core.search import search
+        for term in ('Tendai', 'Moyo', 'tendai'):
+            groups, total = search(term)
+            self.assertTrue(any(g['kind'] == 'player' for g in groups),
+                            term + ' found nobody')
+
+    def test_it_finds_a_tournament_by_name_and_by_place(self):
+        from core.search import search
+        for term in ('Bulawayo Open', 'Bulawayo'):
+            groups, _ = search(term)
+            self.assertTrue(any(g['kind'] == 'tournament' for g in groups), term)
+
+    def test_it_finds_a_club_by_city(self):
+        from core.search import search
+        groups, _ = search('Gweru')
+        clubs = [i.name for g in groups if g['kind'] == 'club' for i in g['items']]
+        self.assertIn('Gweru Chess Club', clubs)
+
+    def test_it_searches_article_bodies_not_only_titles(self):
+        from core.search import search
+        groups, _ = search('full report')
+        self.assertIn('Bulawayo Open results', self._titles(groups))
+
+    # --------------------------------------------------------------- shape
+
+    def test_a_one_character_query_returns_nothing(self):
+        """A single letter matches most of the site. Returning all of it is
+        not a search result, it is a page dump with a text box above it."""
+        from core.search import search
+        groups, total = search('a')
+        self.assertEqual((groups, total), ([], 0))
+
+    def test_an_empty_query_returns_nothing(self):
+        from core.search import search
+        for empty in ('', '   ', None):
+            self.assertEqual(search(empty), ([], 0))
+
+    def test_empty_groups_are_dropped(self):
+        """A results page listing four headings with nothing under three of
+        them is three headings of noise."""
+        from core.search import search
+        groups, _ = search('Gweru')
+        self.assertTrue(all(g['items'] for g in groups))
+
+    # ---------------------------------------------------------------- page
+
+    def test_the_page_answers_and_is_linkable(self):
+        response = self.client.get(reverse('search') + '?q=Bulawayo')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Bulawayo Open')
+
+    def test_the_page_works_with_no_query_at_all(self):
+        response = self.client.get(reverse('search'))
+        self.assertEqual(response.status_code, 200)
+
+    def test_a_search_that_matches_nothing_says_so(self):
+        response = self.client.get(reverse('search') + '?q=zzzznothing')
+        self.assertContains(response, 'Nothing matches')
+
+    def test_a_too_short_query_explains_itself(self):
+        response = self.client.get(reverse('search') + '?q=a')
+        self.assertContains(response, 'at least 2 characters')
+
+    def test_the_form_is_a_get_so_a_result_is_a_url(self):
+        """A POST search cannot be bookmarked, mailed or reached with the back
+        button, and this site works without JavaScript everywhere else."""
+        response = self.client.get(reverse('search'))
+        body = response.content.decode()
+        self.assertIn('method="get"', body)
+        self.assertNotIn('method="post"', body)
+
+    def test_search_reaches_every_page_through_the_masthead(self):
+        response = self.client.get('/')
+        self.assertContains(response, reverse('search'))
+
+    def test_a_query_containing_html_is_escaped(self):
+        response = self.client.get(reverse('search') + '?q=<script>alert(1)</script>')
+        self.assertNotContains(response, '<script>alert(1)</script>')
+
+    def test_the_search_field_has_a_label(self):
+        """Hidden from sight, not from a screen reader. A bare input in a
+        search landmark is announced as "edit text, blank"."""
+        response = self.client.get(reverse('search'))
+        self.assertContains(response, 'for="q"')
+        self.assertContains(response, 'sr-only')
+
+    def test_the_hidden_label_is_still_in_the_accessibility_tree(self):
+        """display:none and visibility:hidden both remove an element from the
+        accessibility tree, which defeats the only reason this class exists.
+        Same trap the skip link avoids by moving offscreen instead."""
+        css = (settings.BASE_DIR / 'static' / 'css' / 'bch.css').read_text(encoding='utf-8')
+        rule = css[css.index('.sr-only {'):]
+        rule = rule[:rule.index('}')]
+        self.assertIn('position: absolute', rule)
+        self.assertNotIn('display: none', rule)
+        self.assertNotIn('visibility: hidden', rule)

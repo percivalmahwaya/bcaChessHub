@@ -590,11 +590,35 @@ def export_print(request, pk):
         'matches__white_player__user',
         'matches__black_player__user',
     ).order_by('number')
+
+    # BOARD DIAGRAMS ARE OPT IN, and that is the whole design decision.
+    #
+    # This report's primary job is the prize sheet read out at the end of the
+    # day, and that wants to be short enough to hand round. A diagram per game
+    # turns a two page document into twenty. So the default is unchanged and
+    # `?diagrams=1` adds them, which is also what the second export menu entry
+    # points at.
+    #
+    # Drawn on the SERVER, not in the browser, because a printed report has no
+    # JavaScript. This file gets saved as a PDF and mailed to a parent, and
+    # opened on a machine that will never reach this server again.
+    diagrams = []
+    if request.GET.get('diagrams'):
+        from matches.replay import final_position
+        for rnd in rounds:
+            for match in rnd.matches.all():
+                position = final_position(match.pgn)
+                if position:
+                    diagrams.append({'match': match, 'round': rnd,
+                                     'position': position})
+
     return render(request, 'tournaments/print.html', {
         'tournament': tournament,
         'blocks': blocks,
         'sectioned': bool(sections),
         'rounds': rounds,
+        'diagrams': diagrams,
+        'wanted_diagrams': bool(request.GET.get('diagrams')),
     })
 
 

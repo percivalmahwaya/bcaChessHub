@@ -239,6 +239,7 @@
              Bootstrap dropdown, which needed Bootstrap's JavaScript to open at
              all.{% endcomment %}
           <div><a href="{% url 'export_print' tournament.pk %}" target="_blank" rel="noopener">Printable report</a></div>
+          <div><a href="{% url 'export_print' tournament.pk %}?diagrams=1" target="_blank" rel="noopener">Printable report with board diagrams</a></div>
           <div><a href="{% url 'export_standings' tournament.pk %}">Standings as CSV</a></div>
           <div><a href="{% url 'export_pairings' tournament.pk %}">Pairings as CSV</a></div>
           {% if user.is_staff or user.member.role == 'admin' and user.member.association == tournament.association %}

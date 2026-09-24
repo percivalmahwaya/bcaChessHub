@@ -1,0 +1,57 @@
+{% comment %}
+  The six piece silhouettes, drawn once and referenced by <use href="#pc-x">.
+
+  A PARTIAL BECAUSE TWO MEDIA NEED THE SAME PIECES. The game viewer draws
+  them with JavaScript from a list of positions; the printed tournament
+  report draws one static position per game with no JavaScript at all. Same
+  shapes, so one copy: a knight redrawn in one file and not the other is a
+  site where the board looks different depending on whether you printed it.
+
+  Flat shapes rather than engraved line art, because flat is what the rest
+  of this site is. Chess glyphs were not an option: they fall back to empty
+  boxes on the handsets this site is opened on, and on a board an empty box
+  is an empty square.
+{% endcomment %}
+<svg width="0" height="0" style="position:absolute;" aria-hidden="true" focusable="false">
+      <defs>
+        <symbol id="pc-p" viewBox="0 0 45 45">
+          <circle cx="22.5" cy="13.5" r="6"/>
+          <path d="M16.5 19.5h12c0 4.5 3 6.5 4 11.5H12.5c1-5 4-7 4-11.5z"/>
+          <path d="M10.5 31h24v5.5h-24z"/>
+        </symbol>
+        <symbol id="pc-r" viewBox="0 0 45 45">
+          <path d="M12 15.5V9h4.5v3.5h4V9h4v3.5h4V9H33v6.5z"/>
+          <path d="M12 15.5h21v4H12z"/>
+          <path d="M14 19.5h17l-1.5 12h-14z"/>
+          <path d="M10.5 31.5h24v5h-24z"/>
+        </symbol>
+        <symbol id="pc-n" viewBox="0 0 45 45">
+          <path d="M26 6L28.5 12.5C32 14.5 34 19 34 24V32.5H12C12 27 14 23 17.5 20
+                   L13 22 11 18.5 15 15C16.5 11.5 19 9 22.5 8L24 5.5Z"/>
+          <path d="M10.5 32.5h24v4h-24z"/>
+        </symbol>
+        <symbol id="pc-b" viewBox="0 0 45 45">
+          <circle cx="22.5" cy="8.5" r="2.6"/>
+          <path d="M22.5 11.5c5.5 0 9.5 6 9.5 11 0 4-4 6.5-9.5 6.5S13 26.5 13 22.5c0-5 4-11 9.5-11z"/>
+          <path d="M13.5 29h18l1.5 3.5h-21z"/>
+          <path d="M10.5 32.5h24v4h-24z"/>
+        </symbol>
+        <symbol id="pc-q" viewBox="0 0 45 45">
+          <circle cx="8.5" cy="12.5" r="2.4"/>
+          <circle cx="15.5" cy="9.5" r="2.4"/>
+          <circle cx="22.5" cy="8.5" r="2.6"/>
+          <circle cx="29.5" cy="9.5" r="2.4"/>
+          <circle cx="36.5" cy="12.5" r="2.4"/>
+          <path d="M9 15l3.5 12.5h20L36 15l-5.5 7-3-10.5-5 10.5-5-10.5-3 10.5z"/>
+          <path d="M12 27.5h21v4H12z"/>
+          <path d="M10.5 31.5h24v5h-24z"/>
+        </symbol>
+        <symbol id="pc-k" viewBox="0 0 45 45">
+          <path d="M21 4h3v10h-3z"/>
+          <path d="M18 7.5h9v3h-9z"/>
+          <path d="M22.5 13.5c5.5 0 9 3.5 9 8 0 3-2 5.5-3 7.5H16.5c-1-2-3-4.5-3-7.5 0-4.5 3.5-8 9-8z"/>
+          <path d="M13 29h19l1 3.5H12z"/>
+          <path d="M10.5 32.5h24v4h-24z"/>
+        </symbol>
+      </defs>
+    </svg>

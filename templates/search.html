@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if query %}{{ query }}, search{% else %}Search{% endif %}{% endblock %}
+{% block description %}Search players, tournaments, clubs and news on Bulawayo Chess Hub.{% endblock %}
+
+{% comment %}
+  A GET form with a `q` parameter, so a search result is a URL: it can be
+  bookmarked, mailed to somebody, and reached with the back button. A
+  JavaScript type-ahead cannot do any of those, and this site works without
+  JavaScript everywhere else.
+
+  Results are grouped and each group is capped, because this page is a
+  signpost to a page that already exists rather than a report. Somebody
+  looking for a player wants the player, not a ranked list of everything on
+  the site that contains their name.
+{% endcomment %}
+
+{% block content %}
+<div class="wrap page">
+
+  <h1 class="page-title">Search</h1>
+
+  <form action="{% url 'search' %}" method="get" role="search"
+        style="display:flex;gap:var(--s-2);max-width:34rem;margin-bottom:var(--s-4);">
+    <label for="q" class="sr-only">Search players, tournaments, clubs and news</label>
+    <input type="search" id="q" name="q" value="{{ query }}" autofocus
+           placeholder="A player, a tournament, a club"
+           style="flex:1;" autocomplete="off">
+    <button class="btn btn-primary" type="submit">Search</button>
+  </form>
+
+  {% if too_short %}
+    <p class="muted">
+      Type at least {{ min_query }} characters. A single letter matches most
+      of the site and tells you nothing.
+    </p>
+
+  {% elif query and not total %}
+    <p class="muted">
+      Nothing matches <strong>{{ query }}</strong>.
+    </p>
+    <p class="small muted">
+      Search covers players, tournaments, clubs and news. A game is found
+      through the tournament or the player who played it.
+    </p>
+
+  {% elif query %}
+    <p class="muted small">
+      {{ total }} result{{ total|pluralize }} for <strong>{{ query }}</strong>.
+    </p>
+
+    {% for group in groups %}
+      <section class="panel" style="margin-bottom:var(--s-3);">
+        <div class="panel-head"><h2>{{ group.label }}</h2></div>
+        <div class="panel-body stack-sm">
+          {% for item in group.items %}
+            {% if group.kind == 'player' %}
+              <div>
+                <a href="{% url 'player_profile' item.pk %}">{{ item.user.get_full_name|default:item.user.username }}</a>
+                <span class="tiny muted">
+                  {{ item.association.name }}
+                  {% if item.ranking_rating %}&middot; {{ item.ranking_rating }}{% endif %}
+                </span>
+              </div>
+            {% elif group.kind == 'tournament' %}
+              <div>
+                <a href="{% url 'tournament_detail' item.pk %}">{{ item.name }}</a>
+                <span class="tiny muted">
+                  {{ item.start_date|date:"j M Y" }}
+                  {% if item.location %}&middot; {{ item.location }}{% endif %}
+                  &middot; {{ item.get_status_display }}
+                </span>
+              </div>
+            {% elif group.kind == 'club' %}
+              <div>
+                <a href="{% url 'club_detail' item.pk %}">{{ item.name }}</a>
+                <span class="tiny muted">{{ item.city }}</span>
+              </div>
+            {% else %}
+              <div>
+                <a href="{{ item.get_absolute_url }}">{{ item.title }}</a>
+                <span class="tiny muted">
+                  {{ item.source }} &middot; {{ item.published_at|date:"j M Y" }}
+                </span>
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endfor %}
+
+  {% else %}
+    <p class="muted">
+      Search players, tournaments, clubs and news.
+    </p>
+  {% endif %}
+
+</div>
+{% endblock %}

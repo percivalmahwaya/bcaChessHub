@@ -4,13 +4,14 @@ from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
-from core.views import home, security
+from core.views import home, security, site_search
 from members.views import dashboard, verify_2fa
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home, name='home'),
     path('security/', security, name='security'),
+    path('search/', site_search, name='search'),
     path('tournaments/', include('tournaments.urls')),
     path('news/', include('news.urls')),
     path('clubs/', include('associations.urls')),

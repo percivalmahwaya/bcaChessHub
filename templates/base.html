@@ -33,6 +33,14 @@
             onclick="document.getElementById('masthead').classList.toggle('open')">Menu</button>
 
     <nav class="nav">
+      {% comment %}
+        A LINK, NOT AN INPUT IN THE MASTHEAD. The masthead is sticky and has
+        to survive a 320px phone with the menu open; a text field in it either
+        squeezes the six navigation links or wraps the bar onto a second line
+        that then follows the reader down the page. The search page carries
+        the field, autofocused, so the link costs one tap and no layout.
+      {% endcomment %}
+      <a href="{% url 'search' %}">Search</a>
       <a href="/tournaments/">Tournaments</a>
       <a href="/rankings/">Ratings</a>
       <a href="/clubs/">Clubs</a>

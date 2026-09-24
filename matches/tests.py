@@ -4,13 +4,14 @@ from associations.models import Association
 from members.models import Member
 from tournaments.models import Tournament, Round, TournamentRegistration
 from matches.models import Match, Challenge
-from matches.replay import replay
+from matches.replay import replay, final_position
 from matches import rating
 from unittest.mock import patch
 import io
 import json
 from django.urls import reverse
 import datetime
+from django.utils import timezone
 
 
 def make_assoc():
@@ -553,3 +554,157 @@ class CopyPgnTest(TestCase):
         response = self.client.get(reverse('match_detail', args=[match.pk]))
         self.assertNotContains(response, 'Copy PGN')
         self.assertNotContains(response, 'id="pgn-text"')
+
+
+class PrintDiagramTest(TestCase):
+    """Final positions for the printed report.
+
+    The interesting failures here are not chess failures. They are print
+    failures: a board that renders perfectly on screen and comes out of a
+    laser printer as sixty four blank squares, or a diagram section that
+    silently doubles the length of the prize sheet.
+    """
+
+    MATE = '1. e4 e5 2. Qh5 Nc6 3. Bc4 Nf6 4. Qxf7# 1-0'
+
+    def test_the_last_position_is_the_one_returned(self):
+        position = final_position(self.MATE)
+        board = ''.join(c['piece'] or '.' for c in position['squares'])
+        # White queen on f7, which is index 13 reading a8 first.
+        self.assertEqual(board[13], 'Q')
+        self.assertTrue(position['checkmate'])
+        self.assertEqual(position['moves'], 4)
+
+    def test_the_move_that_ended_the_game_is_marked(self):
+        lit = {c['square'] for c in final_position(self.MATE)['squares'] if c['lit']}
+        self.assertEqual(lit, {'h5', 'f7'})
+
+    def test_a1_is_a_dark_square(self):
+        """The whole board is laid out from this. Get it wrong and every
+        diagram is a photographic negative of a chessboard, which is the sort
+        of thing nobody notices until it is printed and handed out."""
+        cells = {c['square']: c for c in final_position(self.MATE)['squares']}
+        self.assertTrue(cells['a1']['dark'])
+        self.assertFalse(cells['h1']['dark'])
+        self.assertTrue(cells['h8']['dark'])
+
+    def test_an_unreadable_game_yields_nothing_rather_than_an_empty_board(self):
+        for junk in ('', '   ', 'this is not a game', '[Event "x"]'):
+            self.assertIsNone(final_position(junk), junk)
+
+    def test_a_game_that_stops_early_is_flagged(self):
+        """python-chess stops at the first illegal move and hands back what
+        came before. In the viewer that is bad; on paper it is worse, because
+        a printed diagram carries no hint that anything went wrong."""
+        # Rg8 is well-formed notation for a move the rook cannot make,
+        # which is what a corrupt record looks like. Pure gibberish is a
+        # different failure: the tokeniser discards it and the game reads
+        # as clean, which is why the existing viewer test uses this shape.
+        position = final_position('1. e4 e5 2. Nf3 Rg8 *')
+        self.assertIsNotNone(position)
+        self.assertTrue(position['truncated'])
+
+    def test_white_and_black_pieces_are_distinguishable(self):
+        cells = {c['square']: c for c in final_position(self.MATE)['squares']}
+        self.assertTrue(cells['f7']['white'])
+        self.assertFalse(cells['a8']['white'])
+        self.assertEqual(cells['a8']['sym'], 'pc-r')
+
+
+class PrintReportDiagramsTest(TestCase):
+    """The report itself: diagrams must be opt in and must not leak."""
+
+    def setUp(self):
+        association = Association.objects.create(name='BCA', city='Bulawayo')
+        self.tournament = Tournament.objects.create(
+            name='Open', association=association, status='completed',
+            start_date=timezone.now().date(), end_date=timezone.now().date())
+        rnd = Round.objects.create(tournament=self.tournament, number=1)
+        user_w = User.objects.create_user('pw', password='x')
+        user_b = User.objects.create_user('pb', password='x')
+        white = Member.objects.create(user=user_w, association=association)
+        black = Member.objects.create(user=user_b, association=association)
+        self.match = Match.objects.create(
+            tournament=self.tournament, round=rnd, white_player=white,
+            black_player=black, result='white_win', board_number=1,
+            pgn=PrintDiagramTest.MATE)
+
+    def test_the_plain_report_has_no_diagrams(self):
+        """The prize sheet is read out at the end of the day and wants to stay
+        short. Adding twenty pages of boards to it by default would be a
+        regression dressed as a feature."""
+        response = self.client.get(
+            reverse('export_print', args=[self.tournament.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'class="board"')
+        self.assertNotContains(response, 'Final positions')
+        # And the work must not have been DONE either. Hiding the output
+        # while still parsing every PGN in the tournament passes a
+        # content-only assertion and quietly costs the plain report a full
+        # python-chess replay per game. Found by sabotage: forcing the view's
+        # gate open left this test green.
+        self.assertEqual(response.context['diagrams'], [])
+
+    def test_asking_for_diagrams_produces_them(self):
+        response = self.client.get(
+            reverse('export_print', args=[self.tournament.pk]) + '?diagrams=1')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Final positions')
+        self.assertContains(response, 'class="board"')
+        self.assertContains(response, 'pc-q')
+
+    def test_all_thirty_two_dark_squares_are_drawn(self):
+        """A chessboard has exactly 32 dark squares. A board missing some of
+        them still looks like a board, which is why this counts them rather
+        than checking that any exist at all."""
+        response = self.client.get(
+            reverse('export_print', args=[self.tournament.pk]) + '?diagrams=1')
+        self.assertEqual(response.content.decode().count('class="sq-d"'), 32)
+
+    def test_the_board_is_drawn_rather_than_backgrounded(self):
+        """THE BUG THIS EXISTS FOR, and the reason the board is an SVG.
+
+        The first version drew 64 divs and coloured the dark ones with a CSS
+        background. Browsers strip background colours when printing unless
+        `print-color-adjust: exact` asks them not to, and that is a REQUEST
+        an engine is free to ignore. A board whose dark squares vanish is an
+        empty board that looks exactly like a correct one, printed on
+        whatever the club owns and saved as PDF by whatever the reader owns.
+
+        A rect with a fill is CONTENT. No print engine drops content, in any
+        browser, so this is a structural guarantee rather than a hope. It
+        also removes the one thing about this feature that could not be
+        tested here, since only Chromium is installable in this environment.
+        """
+        response = self.client.get(
+            reverse('export_print', args=[self.tournament.pk]) + '?diagrams=1')
+        body = response.content.decode()
+
+        self.assertIn('<svg class="board"', body)
+        style = body[body.index('<style>'):body.index('</style>')]
+        board_rules = [l for l in style.splitlines()
+                       if '.sq-' in l or '.frame' in l or 'svg.board' in l]
+        self.assertTrue(board_rules, 'the board has no styling at all')
+        for rule in board_rules:
+            self.assertNotIn(
+                'background', rule,
+                'a board square styled with a background can be stripped by '
+                'a printer. Use a fill on a drawn shape: ' + rule.strip())
+        self.assertIn('.sq-d   { fill:', style,
+                      'dark squares must be a fill, which prints everywhere')
+
+    def test_a_game_with_no_moves_is_simply_absent(self):
+        self.match.pgn = ''
+        self.match.save()
+        response = self.client.get(
+            reverse('export_print', args=[self.tournament.pk]) + '?diagrams=1')
+        self.assertNotContains(response, 'class="board"')
+        self.assertContains(response, 'nothing to diagram')
+
+    def test_the_report_needs_no_javascript_to_show_a_position(self):
+        """It gets saved as a PDF and mailed to a parent. The viewer's
+        approach, shipping positions and drawing them in the browser, cannot
+        work here."""
+        response = self.client.get(
+            reverse('export_print', args=[self.tournament.pk]) + '?diagrams=1')
+        self.assertNotContains(response, '<script')

@@ -68,6 +68,8 @@
           <div class="panel-body stack-sm">
             <a href="{% url 'export_print' tournament.pk %}" target="_blank" rel="noopener">
               Printable report</a>
+            <a href="{% url 'export_print' tournament.pk %}?diagrams=1" target="_blank" rel="noopener">
+              Printable report, with diagrams</a>
             <a href="{% url 'export_standings' tournament.pk %}">Standings, CSV</a>
             <a href="{% url 'export_pairings' tournament.pk %}">Pairings, CSV</a>
           </div>
